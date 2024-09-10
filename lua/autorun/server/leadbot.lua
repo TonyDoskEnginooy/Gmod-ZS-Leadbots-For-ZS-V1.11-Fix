@@ -34,14 +34,14 @@ if engine.ActiveGamemode() == "zombiesurvival" then
         local f = table.Add(file.Find("leadbot/modules/" .. v .. "/sv_*.lua", "LUA"), file.Find("leadbot/modules/" .. v .. "/sh_*.lua", "LUA"))
         f = table.Add(f, file.Find("leadbot/modules/" .. v .. "/cl_*.lua", "LUA"))
         for i, o in pairs(f) do
-            local file = "leadbot/modules/" .. v .. "/" .. o
+            local path = "leadbot/modules/" .. v .. "/" .. o
 
             if string.StartWith(o, "cl_") then
-                AddCSLuaFile(file)
+                AddCSLuaFile(path)
             else
-                include(file)
+                include(path)
                 if string.StartWith(o, "sh_") then
-                    AddCSLuaFile(file)
+                    AddCSLuaFile(path)
                 end
             end
         end
@@ -50,12 +50,12 @@ if engine.ActiveGamemode() == "zombiesurvival" then
     -- Configs
 
     local map = game.GetMap()
-    local gamemode = engine.ActiveGamemode()
+    local gamemodeName = engine.ActiveGamemode()
 
     if file.Find("leadbot/gamemodes/" .. map .. ".lua", "LUA")[1] then
         include("leadbot/gamemodes/" .. map .. ".lua")
-    elseif file.Find("leadbot/gamemodes/" .. gamemode .. ".lua", "LUA")[1] then
-        print("including " .. "leadbot/gamemodes/" .. gamemode .. ".lua")
-        include("leadbot/gamemodes/" .. gamemode .. ".lua")
+    elseif file.Find("leadbot/gamemodes/" .. gamemodeName .. ".lua", "LUA")[1] then
+        print("including " .. "leadbot/gamemodes/" .. gamemodeName .. ".lua")
+        include("leadbot/gamemodes/" .. gamemodeName .. ".lua")
     end
 end
