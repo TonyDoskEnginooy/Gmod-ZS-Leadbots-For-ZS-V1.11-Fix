@@ -370,8 +370,8 @@ function LeadBot.StartCommand(bot, cmd)
     if not IsValid(controller) then return end
 
     local foundEnts = ZSB.Util:FindEnts(bot)
-    local facingPlysOrBots = foundEnts.facing[ZSB.Util:Odds(50) and "NPCs" or "player"]
-    local nearPlysOrBots = foundEnts.near[ZSB.Util:Odds(50) and "NPCs" or "player"]
+    local facingPlysOrBots = foundEnts.facing["player"]
+    local nearPlysOrBots = foundEnts.near["player"]
 
     TargetFacingEnemy(bot, facingPlysOrBots, controller)
     TargetNearEnemy(bot, nearPlysOrBots, controller)
