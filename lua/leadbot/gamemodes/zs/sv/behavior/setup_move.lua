@@ -785,7 +785,8 @@ end
 local function SetEyeAngles(bot, controller, curGoal, lerp, lerpc)
     if IsValid(controller.Target) and controller.Target:IsPlayer() then
         if bot:Team() == TEAM_SURVIVORS then
-            if controller.Target:GetZombieClass() >= 2 and controller.Target:GetZombieClass() < 5 or controller.Target:GetZombieClass() < 2 or controller.Target:GetZombieClass() == 5 or controller.Target:GetZombieClass() >= 10 then                    if not controller.Target:Crouching() then 
+            if controller.Target:GetZombieClass() >= 2 and controller.Target:GetZombieClass() < 5 or controller.Target:GetZombieClass() < 2 or controller.Target:GetZombieClass() == 5 or controller.Target:GetZombieClass() >= 10 then
+                if not controller.Target:Crouching() then 
                     bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - controller.Target:GetViewOffsetDucked() - bot:GetShootPos()):Angle()))
                 else
                     bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - bot:GetShootPos()):Angle()))
