@@ -222,7 +222,7 @@ local function TargetNearEnemy(bot, nearPlysOrBots, controller)
     end
 end
 
-local function SetButtonPresses(bot, controller, cmd)
+local function DoButtonPresses(bot, controller, cmd)
     local buttons = 0
     local target = controller.Target
 
@@ -240,9 +240,9 @@ local function SetButtonPresses(bot, controller, cmd)
                         local distance = target:GetPos():DistToSqr(bot:GetPos())
  
                         if not target:IsPlayer() and not target:IsNPC() or
-                            target:IsNPC() and IsValid(newTarget) or
+                            target:IsNPC() and IsValid(target) or
                             target:IsPlayer() and not target:HasGodMode() and (
-                                IsValid(newTarget) or
+                                IsValid(target) or
                                 distance <= 5625
                             ) and (
                                 distance > 67500 and target:GetZombieClass() == 4 or
@@ -266,7 +266,7 @@ local function SetButtonPresses(bot, controller, cmd)
         if IsValid(target) then
             if math.random(1, 2) == 1 then 
                 if bot:GetZombieClass() > 5 and bot:GetZombieClass() < 9 then 
-                    if IsValid(newTarget) or not target:IsPlayer() and not target:IsNPC() then 
+                    if IsValid(target) or not target:IsPlayer() and not target:IsNPC() then 
                         buttons = buttons + IN_ATTACK
                     end
                 else
@@ -279,7 +279,7 @@ local function SetButtonPresses(bot, controller, cmd)
                         end
                     end
                 end
-                if target:IsPlayer() and IsValid(newTarget) and bot:LBGetZomSkill() == 1 then 
+                if target:IsPlayer() and IsValid(target) and bot:LBGetZomSkill() == 1 then 
                     if bot:GetZombieClass() == 3 or bot:GetZombieClass() == 8 then
                         local distance = target:GetPos():DistToSqr(bot:GetPos())
                         if distance <= 90000 then 
@@ -386,5 +386,5 @@ function LeadBot.StartCommand(bot, cmd)
 
     ToggleFuncMoveLinear(bot, foundEnts.near['func_movelinear'])
 
-    SetButtonPresses(bot, controller, cmd)
+    DoButtonPresses(bot, controller, cmd)
 end
