@@ -4,7 +4,7 @@
 local player_meta = FindMetaTable("Player")
 local oldInfo = player_meta.GetInfo
 
-function player_meta.IsLBot(self, realbotsonly)
+function player_meta:IsLBot(realbotsonly)
     if realbotsonly == true then
         return self:IsBot()
     else
@@ -12,7 +12,7 @@ function player_meta.IsLBot(self, realbotsonly)
     end
 end
 
-function player_meta.LBGetStrategy(self)
+function player_meta:LBGetStrategy()
     if self.LeadBot_Config then
         return self.LeadBot_Config[4]
     else
@@ -20,7 +20,7 @@ function player_meta.LBGetStrategy(self)
     end
 end
 
-function player_meta.LBGetSurvSkill(self)
+function player_meta:LBGetSurvSkill()
     if self.LeadBot_Config then
         return self.LeadBot_Config[5]
     else
@@ -28,7 +28,7 @@ function player_meta.LBGetSurvSkill(self)
     end
 end
 
-function player_meta.LBGetZomSkill(self)
+function player_meta:LBGetZomSkill()
     if self.LeadBot_Config then
         return self.LeadBot_Config[6]
     else
@@ -36,7 +36,7 @@ function player_meta.LBGetZomSkill(self)
     end
 end
 
-function player_meta.LBGetShootSkill(self)
+function player_meta:LBGetShootSkill()
     if self.LeadBot_Config then
         return self.LeadBot_Config[7]
     else
@@ -44,7 +44,7 @@ function player_meta.LBGetShootSkill(self)
     end
 end
 
-function player_meta.LBGetModel(self)
+function player_meta:LBGetModel()
     if self.LeadBot_Config then
         return self.LeadBot_Config[1]
     else
@@ -52,7 +52,7 @@ function player_meta.LBGetModel(self)
     end
 end
 
-function player_meta.LBGetColor(self, weapon)
+function player_meta:LBGetColor(weapon)
     if self.LeadBot_Config then
         if weapon == true then
             return self.LeadBot_Config[3]
@@ -64,7 +64,7 @@ function player_meta.LBGetColor(self, weapon)
     end
 end
 
-function player_meta.GetInfo(self, convar)
+function player_meta:GetInfo(convar)
     if self:IsBot() and self:IsLBot() then
         if convar == "cl_playermodel" then
             return self:LBGetModel() --self.LeadBot_Config[1]
@@ -80,14 +80,14 @@ function player_meta.GetInfo(self, convar)
     end
 end
 
-function player_meta.GetController(self)
+function player_meta:GetController()
     if self:IsLBot() then
         local controller = self.ControllerBot
 
         if not IsValid(controller) then
             controller = ents.Create("leadbot_navigator")
             controller:Spawn()
-            controller:SetOwner(self)
+            controller:SetOwner()
             self.ControllerBot = controller
         end
     
