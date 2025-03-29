@@ -362,8 +362,10 @@ local function SetButtonPresses(bot, controller, cmd)
     cmd:SetButtons(buttons)
 end
 
+-- https://wiki.facepunch.com/gmod/GM:StartCommand
+-- "the best solution to control" bots
 function LeadBot.StartCommand(bot, cmd)
-    local controller = bot.ControllerBot
+    local controller = bot:GetController()
 
     if not IsValid(controller) then return end
 

@@ -82,6 +82,15 @@ end
 
 function player_meta.GetController(self)
     if self:IsLBot() then
-        return self.ControllerBot
+        local controller = self.ControllerBot
+
+        if not IsValid(controller) then
+            controller = ents.Create("leadbot_navigator")
+            controller:Spawn()
+            controller:SetOwner(self)
+            self.ControllerBot = controller
+        end
+    
+        return controller
     end
 end

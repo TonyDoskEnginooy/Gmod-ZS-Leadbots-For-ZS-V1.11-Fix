@@ -248,7 +248,7 @@ function LeadBot.AddBot()
         strategy = math.random(0, LeadBot.Strategies)
     end
 
-    bot.freeroam = true
+    bot.freeRoam = true
     bot.LeadBot_Config = { model, color, weaponcolor, strategy, survskill, zomskill, shootskill }
 
     -- for legacy purposes, will be removed soon when gamemodes are updated
