@@ -103,12 +103,14 @@ local function TargetEnemyInFrontNext(bot, controller)
 end
 
 local function RememberTarget(bot, controller)
-    local feet = Vector(0, 0, -29)
-    local filterList = {controller, bot, function( ent ) return ( ent:GetClass() == "prop_physics" ) end}
-    local pet = util.QuickTrace(bot:GetPos() + feet, bot:GetForward() * 10000000000, filterList)
+    if IsValid(controller.Target) then
+        local feet = Vector(0, 0, -29)
+        local filterList = {controller, bot, function( ent ) return ( ent:GetClass() == "prop_physics" ) end}
+        local pet = util.QuickTrace(bot:GetPos() + feet, bot:GetForward() * 10000000000, filterList)
 
-    if controller.ForgetTarget < CurTime() and pet.Entity == controller.Target then
-        controller.ForgetTarget = CurTime() + 4
+        if controller.ForgetTarget < CurTime() and pet.Entity == controller.Target then
+            controller.ForgetTarget = CurTime() + 4
+        end
     end
 end
 
