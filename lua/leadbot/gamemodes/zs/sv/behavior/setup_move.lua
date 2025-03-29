@@ -867,16 +867,14 @@ function LeadBot.SetupMove(bot, cmd, mv)
 
     ToggleFuncMoveLinear(bot, foundEnts.near['func_movelinear'])
 
-    if not IsValid(controller.Target) and (not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime()) then
-        SetMovementWithoutTarget(bot, controller, strategy)
-    end
-
     if IsValid(controller.Target) then
         local distance = controller.Target:GetPos():DistToSqr(bot:GetPos())
 
         SetMoveToTarget(bot, controller)
         Retreat(bot, controller, mv, distance)
         SelectWeapon(bot, distance)
+    elseif not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime() then
+        SetMovementWithoutTarget(bot, controller, strategy)
     end
 
     local aimskill = GetAimSkill()
