@@ -71,7 +71,7 @@ local function SetBaseForwardSpeed(bot, controller, mv)
     end
 end
 
-local function DecideRoaming(bot)
+local function SetRoam(bot)
     if bot:Team() == TEAM_SURVIVORS then 
         if bot:Health() <= 50 or team.NumPlayers(TEAM_SURVIVORS) <= team.NumPlayers(TEAM_ZOMBIE) then
             bot.freeRoam = false
@@ -836,7 +836,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
     SetBaseForwardSpeed(bot, controller, mv)
 
     KillAloneHordeBot(bot)
-    DecideRoaming(bot)
+    SetRoam(bot)
 
     Cheat(bot)
 
