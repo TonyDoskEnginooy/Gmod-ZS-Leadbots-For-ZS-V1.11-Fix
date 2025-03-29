@@ -5,7 +5,7 @@ local leadbot_quota = GetConVar("leadbot_quota")
 local leadbot_skill = GetConVar("leadbot_skill")
 local leadbot_hinfammo = GetConVar("leadbot_hinfammo")
 
-local function SetInitialEyeAngles(bot, controller)
+local function SetCampingEyeAngles(bot, controller)
     local strategy = bot:LBGetStrategy()
     local sigil1 = ZSB.Map:GetValue("sigil1")
     local sigil2 = ZSB.Map:GetValue("sigil2")
@@ -831,7 +831,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
 
     if not IsValid(controller) then return end
 
-    SetInitialEyeAngles(bot, controller)
+    SetCampingEyeAngles(bot, controller)
     SetJumpPower(bot)
     SetBaseForwardSpeed(bot, controller, mv)
 
