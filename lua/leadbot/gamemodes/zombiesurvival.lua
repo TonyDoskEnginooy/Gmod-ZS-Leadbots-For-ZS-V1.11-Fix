@@ -1,6 +1,6 @@
 -- This module is intended to run with ZS v1.11 Fix by Xalalau
 
-if CLIENT or game.SinglePlayer() then
+if CLIENT then
     return
 end
 
