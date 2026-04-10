@@ -690,9 +690,7 @@ local function HasClearShot(bot, controller, target)
     local tr = util.TraceLine({
         start = bot:GetShootPos(),
         endpos = targetPos,
-        filter = function(ent)
-            return ent == bot or ent == controller
-        end
+        filter = {bot, controller}
     })
 
     return tr.Entity == target
