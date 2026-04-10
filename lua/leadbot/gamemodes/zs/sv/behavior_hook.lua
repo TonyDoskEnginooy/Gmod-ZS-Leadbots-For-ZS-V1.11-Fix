@@ -70,3 +70,11 @@ hook.Add("EntityFireBullets", "ZS_LeadBot_EntityFireBullets", function(ent, data
 
     return LeadBot.FireBullets(ent, weapon, data)
 end)
+
+hook.Add("PostEntityTakeDamage", "ZS_LeadBot_KnifeBloodFeedback", function(victim, dmgInfo, wasDamageTaken)
+    if not wasDamageTaken or dmgInfo:GetDamage() <= 0 then
+        return
+    end
+
+    LeadBot.PostEntityTakeDamage(victim, dmgInfo, wasDamageTaken)
+end)
