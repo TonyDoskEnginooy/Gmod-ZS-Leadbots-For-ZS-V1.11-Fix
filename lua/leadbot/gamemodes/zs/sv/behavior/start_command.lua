@@ -665,6 +665,115 @@ function LeadBot.Spawn(bot)
     bot:SetZombieClass(PickZombieClass(bot))
 end
 
+local function IsCombatTarget(bot, target)
+    if not IsValid(target) or target == bot then
+        return false
+    end
+
+    if target:IsPlayer() then
+        return target:Alive()
+            and target:Team() ~= bot:Team()
+            and not target:HasGodMode()
+    end
+
+    return target:IsNPC() and bot:Team() == TEAM_SURVIVORS
+end
+
+local function HasClearShot(bot, controller, target)
+    local targetPos = target:IsPlayer() and target:EyePos() or target:WorldSpaceCenter()
+
+    local aimDir = (targetPos - bot:GetShootPos()):GetNormalized()
+    if bot:GetAimVector():Dot(aimDir) < 0.85 then
+        return false
+    end
+
+    local tr = util.TraceLine({
+        start = bot:GetShootPos(),
+        endpos = targetPos,
+        filter = function(ent)
+            return ent == bot or ent == controller
+        end
+    })
+
+    return tr.Entity == target
+end
+
+local function ShouldPressAttack(bot, controller)
+    local target = controller.Target
+    if not IsValid(target) then
+        return false
+    end
+
+    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
+
+    if bot:Team() == TEAM_SURVIVORS then
+        if not IsCombatTarget(bot, target) then
+            return false
+        end
+
+        return HasClearShot(bot, controller, target)
+    end
+
+    if bot:Team() == TEAM_ZOMBIE then
+        if IsCombatTarget(bot, target) then
+            return distanceSqr <= 22500
+        end
+
+        if IsSimpleObstacleTarget(bot, target) then
+            return distanceSqr <= 10000
+        end
+    end
+
+    return false
+end
+
+local function BuildActionButtons(bot, controller)
+    local buttons = IN_SPEED
+    local weapon = bot:GetActiveWeapon()
+    local target = controller.Target
+
+    if IsValid(weapon) then
+        local clip1 = weapon:Clip1()
+        local maxClip1 = weapon:GetMaxClip1()
+
+        if clip1 == 0 or (not IsValid(target) and maxClip1 > 0 and clip1 <= maxClip1 / 2) then
+            buttons = bit.bor(buttons, IN_RELOAD)
+        end
+    end
+
+    if ShouldPressAttack(bot, controller) then
+        buttons = bit.bor(buttons, IN_ATTACK)
+    end
+
+    if bot:GetMoveType() == MOVETYPE_LADDER then
+        local pos = controller.goalPos or bot:GetPos()
+        local ang = ((pos + bot:GetCurrentViewOffset()) - bot:GetShootPos()):Angle()
+
+        if pos.z > controller:GetPos().z then
+            controller.LookAt = Angle(-30, ang.y, 0)
+        else
+            controller.LookAt = Angle(30, ang.y, 0)
+        end
+
+        controller.LookAtTime = CurTime() + 0.1
+        controller.NextJump = -1
+        buttons = bit.bor(buttons, IN_FORWARD)
+    end
+
+    if controller.NextDuck and controller.NextDuck > CurTime() then
+        buttons = bit.bor(buttons, IN_DUCK)
+    elseif controller.NextJump == 0 then
+        controller.NextJump = CurTime() + 1
+        buttons = bit.bor(buttons, IN_JUMP)
+    end
+
+    if not bot:IsOnGround() and controller.NextJump and controller.NextJump > CurTime() then
+        buttons = bit.bor(buttons, IN_DUCK)
+    end
+
+    return buttons
+end
+
 function LeadBot.StartCommand(bot, cmd)
     local controller = bot:GetController()
     if not IsValid(controller) then return end
@@ -692,4 +801,10 @@ function LeadBot.StartCommand(bot, cmd)
     elseif not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime() then
         MoveWithoutTarget(bot, controller, bot:LBGetStrategy())
     end
+
+    local buttons = BuildActionButtons(bot, controller)
+
+    cmd:ClearButtons()
+    cmd:ClearMovement()
+    cmd:SetButtons(buttons)
 end
