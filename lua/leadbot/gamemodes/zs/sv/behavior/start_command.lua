@@ -5,33 +5,6 @@ local leadbot_zcheats = GetConVar("leadbot_zcheats")
 local leadbot_hordes = GetConVar("leadbot_hordes")
 local leadbot_quota = GetConVar("leadbot_quota")
 
--- The base ZS gamemode also uses class 1 as the reset/default state for humans.
-local DEFAULT_CLASS_ID = 1
-
-local RESET_TO_DEFAULT_CLASSES = {
-    [9] = true,
-    [11] = true
-}
-
-local ZOMBIE_CLASS_RULES = {
-    early = {
-        fallback = 1,
-        classes = { 1, 5, 6, 7 }
-    },
-    mid = {
-        fallback = 2,
-        classes = { 1, 2, 3, 5, 6, 7, 8 }
-    },
-    late = {
-        fallback = 4,
-        classes = { 1, 2, 3, 4, 5, 6, 7, 8 },
-        weighted = {
-            { from = 12, classId = 2 },
-            { from = 9, to = 11, classId = 4 }
-        }
-    }
-}
-
 local TARGET_LOAD = setmetatable({}, { __mode = "k" })
 local NEXT_TARGET_LOAD_REFRESH = 0
 
@@ -675,6 +648,7 @@ local function BuildActionButtons(bot, controller)
     local buttons = IN_SPEED
     local weapon = bot:GetActiveWeapon()
     local target = controller.Target
+    local onStairs = controller.IsTraversingStairs == true
 
     if IsValid(weapon) then
         local clip1 = weapon:Clip1()
@@ -702,16 +676,19 @@ local function BuildActionButtons(bot, controller)
         controller.LookAtTime = CurTime() + 0.1
         controller.NextJump = -1
         buttons = bit.bor(buttons, IN_FORWARD)
+    elseif onStairs then
+        controller.NextJump = -1
+        buttons = bit.bor(buttons, IN_FORWARD)
     end
 
     if controller.NextDuck and controller.NextDuck > CurTime() then
         buttons = bit.bor(buttons, IN_DUCK)
-    elseif controller.NextJump == 0 then
+    elseif not onStairs and controller.NextJump == 0 then
         controller.NextJump = CurTime() + 1
         buttons = bit.bor(buttons, IN_JUMP)
     end
 
-    if not bot:IsOnGround() and controller.NextJump and controller.NextJump > CurTime() then
+    if not bot:IsOnGround() and not onStairs and controller.NextJump and controller.NextJump > CurTime() then
         buttons = bit.bor(buttons, IN_DUCK)
     end
 

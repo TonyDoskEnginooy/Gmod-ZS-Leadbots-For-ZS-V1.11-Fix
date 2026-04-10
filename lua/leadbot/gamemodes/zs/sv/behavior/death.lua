@@ -3,8 +3,7 @@ local leadbot_cs = GetConVar("leadbot_cs")
 
 local CHANGE_TO_NORMAL_ZOMBIE = {
     [1] = true,
-    [9] = true,
-    [11] = true
+    [9] = true
 }
 
 local HEIGHT_FIX = Vector(0, 0, -20)

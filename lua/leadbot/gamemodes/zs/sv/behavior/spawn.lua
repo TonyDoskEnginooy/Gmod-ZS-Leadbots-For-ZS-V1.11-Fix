@@ -6,8 +6,7 @@ local leadbot_knockback = GetConVar("leadbot_knockback")
 local DEFAULT_CLASS_ID = 1
 
 local RESET_TO_DEFAULT_CLASSES = {
-    [9] = true,
-    [11] = true
+    [9] = true
 }
 
 local ZOMBIE_CLASS_RULES = {
@@ -24,7 +23,7 @@ local ZOMBIE_CLASS_RULES = {
         classes = { 1, 2, 3, 4, 5, 6, 7, 8 },
         weighted = {
             { from = 12, classId = 2 },
-            { from = 9, to = 11, classId = 4 }
+            { from = 9, to = 9, classId = 4 }
         }
     }
 }
