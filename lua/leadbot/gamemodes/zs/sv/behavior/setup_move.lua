@@ -155,6 +155,16 @@ local function Retreat(bot, controller, mv, distanceSqr, strategy)
         return
     end
 
+    if bot:Team() == TEAM_SURVIVORS and controller.ConserveAmmoWithKnife and IsValid(controller.Target) then
+        if distanceSqr > 90 * 90 then
+            mv:SetForwardSpeed(1200)
+        else
+            mv:SetForwardSpeed(0)
+        end
+
+        return
+    end
+
     if strategy == 0 or bot.freeRoam then
         if bot:Health() > 70 then
             if distanceSqr <= 45000 then
