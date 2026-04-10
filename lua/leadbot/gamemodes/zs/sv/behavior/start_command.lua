@@ -447,13 +447,75 @@ local function GetRewardThreshold(index)
     local legacyCvar = GetConVar("zs_rewards_" .. index)
     return legacyCvar and legacyCvar:GetInt() or 0
 end
+
+local function HasWeaponClass(bot, className)
+    return IsValid(bot:GetWeapon(className))
+end
+
+local function SelectMeleeFallback(bot)
+    if HasWeaponClass(bot, "weapon_zs_swissarmyknife") then
+        bot:SelectWeapon("weapon_zs_swissarmyknife")
+        return true
+    end
+
+    return false
+end
+
+local function HasNoReserveFirearmAmmo(bot)
+    return bot:GetAmmoCount("Pistol") <= 0
+        and bot:GetAmmoCount("SMG1") <= 0
+        and bot:GetAmmoCount("Buckshot") <= 0
+end
+
+
+local function HasLowAmmoReserves(bot)
+    return bot:GetAmmoCount("Pistol") <= 12
+        and bot:GetAmmoCount("SMG1") <= 20
+        and bot:GetAmmoCount("Buckshot") <= 4
+end
+
+local function CountNearbyZombies(bot, foundEnts, maxDistSqr)
+    local count = 0
+
+    for _, ent in ipairs(foundEnts.area["player"] or {}) do
+        if IsValid(ent)
+            and ent:Alive()
+            and ent:Team() == TEAM_ZOMBIE
+            and not ent:HasGodMode()
+            and ent:GetPos():DistToSqr(bot:GetPos()) <= maxDistSqr
+        then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+local function ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+    if bot:Team() ~= TEAM_SURVIVORS then return false end
+    if not IsValid(controller.Target) or not controller.Target:IsPlayer() then return false end
+    if controller.Target:Team() ~= TEAM_ZOMBIE then return false end
+    if not HasWeaponClass(bot, "weapon_zs_swissarmyknife") then return false end
+    if not HasLowAmmoReserves(bot) then return false end
+    if distanceSqr > 300 * 300 then return false end
+
+    return CountNearbyZombies(bot, foundEnts, 350 * 350) == 1
+end
+
+local function SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
     local tier2 = GetRewardThreshold(1)
     local tier3 = GetRewardThreshold(3)
     local tier4 = GetRewardThreshold(4)
+
     local activeWeapon = bot:GetActiveWeapon()
     local clip = IsValid(activeWeapon) and activeWeapon:Clip1() or 0
+
+    if clip <= 0 and HasNoReserveFirearmAmmo(bot) or ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr) then
+        SelectMeleeFallback(bot)
+        return
+    end
 
     if distanceSqr > 30000 then
         if bot:Frags() < tier2 then
@@ -705,6 +767,11 @@ local function HasClearShot(bot, controller, target)
     return tr.Entity == target
 end
 
+local function IsKnifeActive(bot)
+    local weapon = bot:GetActiveWeapon()
+    return IsValid(weapon) and weapon:GetClass() == "weapon_zs_swissarmyknife"
+end
+
 local function ShouldPressAttack(bot, controller)
     local target = controller.Target
     if not IsValid(target) then
@@ -716,6 +783,10 @@ local function ShouldPressAttack(bot, controller)
     if bot:Team() == TEAM_SURVIVORS then
         if not IsCombatTarget(bot, target) then
             return false
+        end
+
+        if IsKnifeActive(bot) then
+            return distanceSqr <= 95 * 95 and HasClearShot(bot, controller, target)
         end
 
         return HasClearShot(bot, controller, target)
@@ -804,7 +875,7 @@ function LeadBot.StartCommand(bot, cmd)
         local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
 
         UpdateGoalFromTarget(bot, controller)
-        SelectSurvivorWeapon(bot, distanceSqr)
+        SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
     elseif not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime() then
         MoveWithoutTarget(bot, controller, bot:LBGetStrategy())
     end
