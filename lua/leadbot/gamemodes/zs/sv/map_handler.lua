@@ -262,6 +262,10 @@ function ZSB.Map:GetValue(key, default, ...)
     local currentValue = self.current[key]
 
     if currentValue ~= nil then
+        if isfunction(currentValue) then
+            return currentValue(...)
+        end
+
         return currentValue
     end
 
