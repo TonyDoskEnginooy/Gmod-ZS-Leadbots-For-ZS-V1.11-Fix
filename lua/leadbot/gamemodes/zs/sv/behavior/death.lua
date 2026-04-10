@@ -23,7 +23,7 @@ local function UpdateZombieClass(victimBot)
     end
 end
 
-function LeadBot.Death(aggressor, victimBot)
+function LeadBot.Death(victimBot, aggressor)
     if IsValid(victimBot) and victimBot:IsBot() and victimBot:Team() == TEAM_ZOMBIE then
         UpdateZombieClass(victimBot)
 
