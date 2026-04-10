@@ -198,6 +198,7 @@ concommand.Add("leadbot_kick", CmdKickBot, nil, "Kicks LeadBots. Use 'all' to ki
 include("zs/sv/map_handler.lua")
 include("zs/sv/player_meta.lua")
 include("zs/sv/util.lua")
+include("zs/sv/timer.lua")
 include("zs/sv/add_bot.lua")
 includeFilesInDir("leadbot/gamemodes/zs/sv/behavior")
 include("zs/sv/behavior_hook.lua")
