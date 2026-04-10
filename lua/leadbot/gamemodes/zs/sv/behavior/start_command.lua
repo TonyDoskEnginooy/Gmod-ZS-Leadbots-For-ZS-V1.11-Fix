@@ -437,12 +437,21 @@ local function BreakBreakableSurface(surfaces)
         surface:Fire("Break")
     end
 end
-local function SelectSurvivorWeapon(bot, distanceSqr)
+
+local function GetRewardThreshold(index)
+    local thresholdCvar = GetConVar("zs_rewards_" .. index .. "_threshold")
+    if thresholdCvar then
+        return thresholdCvar:GetInt()
+    end
+
+    local legacyCvar = GetConVar("zs_rewards_" .. index)
+    return legacyCvar and legacyCvar:GetInt() or 0
+end
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
-    local tier2 = GetConVar("zs_rewards_1"):GetInt()
-    local tier3 = GetConVar("zs_rewards_3"):GetInt()
-    local tier4 = GetConVar("zs_rewards_4"):GetInt()
+    local tier2 = GetRewardThreshold(1)
+    local tier3 = GetRewardThreshold(3)
+    local tier4 = GetRewardThreshold(4)
     local activeWeapon = bot:GetActiveWeapon()
     local clip = IsValid(activeWeapon) and activeWeapon:Clip1() or 0
 
