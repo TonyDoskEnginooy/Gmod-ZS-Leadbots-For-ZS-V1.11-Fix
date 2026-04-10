@@ -9,24 +9,100 @@ local RESET_TO_DEFAULT_CLASSES = {
     [9] = true
 }
 
-local ZOMBIE_CLASS_RULES = {
+local ZOMBIE_CLASS_WEIGHTS = {
     early = {
-        fallback = 1,
-        classes = { 1, 5, 6, 7 }
+        [1] = 72,
+        [5] = 18,
+        [6] = 10,
+        [7] = 8
     },
     mid = {
-        fallback = 2,
-        classes = { 1, 2, 3, 5, 6, 7, 8 }
+        [1] = 20,
+        [2] = 24,
+        [3] = 10,
+        [5] = 18,
+        [6] = 8,
+        [7] = 10,
+        [8] = 6
     },
     late = {
-        fallback = 4,
-        classes = { 1, 2, 3, 4, 5, 6, 7, 8 },
-        weighted = {
-            { from = 12, classId = 2 },
-            { from = 9, to = 9, classId = 4 }
-        }
+        [1] = 10,
+        [2] = 20,
+        [3] = 18,
+        [4] = 18,
+        [5] = 12,
+        [6] = 4,
+        [7] = 6,
+        [8] = 12
     }
 }
+
+local TEMPERAMENT_CLASS_MULTIPLIERS = {
+    rusher = {
+        [1] = 1.20,
+        [2] = 1.10,
+        [3] = 1.05,
+        [4] = 0.95,
+        [5] = 0.95,
+        [6] = 0.85,
+        [7] = 0.90,
+        [8] = 0.90
+    },
+    flanker = {
+        [1] = 0.70,
+        [2] = 1.35,
+        [3] = 0.95,
+        [4] = 0.85,
+        [5] = 1.25,
+        [6] = 1.10,
+        [7] = 1.25,
+        [8] = 1.05
+    },
+    breaker = {
+        [1] = 1.35,
+        [2] = 0.85,
+        [3] = 1.20,
+        [4] = 1.30,
+        [5] = 0.85,
+        [6] = 0.70,
+        [7] = 0.75,
+        [8] = 1.15
+    },
+    drifter = {
+        [1] = 0.85,
+        [2] = 1.05,
+        [3] = 1.00,
+        [4] = 0.95,
+        [5] = 1.20,
+        [6] = 1.15,
+        [7] = 1.20,
+        [8] = 1.15
+    },
+    berserker = {
+        [1] = 0.95,
+        [2] = 1.40,
+        [3] = 1.15,
+        [4] = 1.10,
+        [5] = 1.30,
+        [6] = 0.90,
+        [7] = 1.20,
+        [8] = 1.00
+    }
+}
+
+local CLASS_POPULATION_PENALTY = {
+    [1] = 0.16,
+    [2] = 0.30,
+    [3] = 0.28,
+    [4] = 0.35,
+    [5] = 0.24,
+    [6] = 0.40,
+    [7] = 0.40,
+    [8] = 0.32
+}
+
+local EMPTY_CLASS_BONUS = 1.25
+local SAME_CLASS_REPEAT_PENALTY = 0.60
 
 local function GetInfliction()
     local infliction = tonumber(INFLICTION) or 0
@@ -42,18 +118,170 @@ local function CanUseZombieClass(classId)
     return classData ~= nil and GetInfliction() >= (classData.Threshold or 0)
 end
 
-local function GetZombieRuleSet()
+local function GetZombieStage()
     local infliction = GetInfliction()
 
     if infliction <= 0.5 then
-        return ZOMBIE_CLASS_RULES.early
+        return "early"
     end
 
     if infliction <= 0.75 then
-        return ZOMBIE_CLASS_RULES.mid
+        return "mid"
     end
 
-    return ZOMBIE_CLASS_RULES.late
+    return "late"
+end
+
+local function GetZombieTemperamentName(bot)
+    local temperament = bot.LeadBot_ZombieTemperament
+    return temperament and temperament.name or "rusher"
+end
+
+local function GetTemperamentClassMultiplier(bot, classId)
+    local temperamentName = GetZombieTemperamentName(bot)
+    local temperamentWeights = TEMPERAMENT_CLASS_MULTIPLIERS[temperamentName]
+
+    if not temperamentWeights then
+        return 1
+    end
+
+    return temperamentWeights[classId] or 1
+end
+
+local function GetAliveZombieClassCount(classId, ignoreBot)
+    local count = 0
+
+    for _, ply in ipairs(player.GetAll()) do
+        if ply ~= ignoreBot
+            and IsValid(ply)
+            and ply:Alive()
+            and ply:Team() == TEAM_ZOMBIE
+            and ply.GetZombieClass
+            and ply:GetZombieClass() == classId
+        then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+local function ApplyPressureBias(weight, classId, infliction, humanCount)
+    if humanCount <= 2 then
+        if classId == 2 or classId == 4 or classId == 5 then
+            weight = weight * 1.25
+        elseif classId == 6 or classId == 7 then
+            weight = weight * 0.45
+        end
+    elseif infliction >= 0.75 then
+        if classId == 3 or classId == 4 or classId == 8 then
+            weight = weight * 1.15
+        elseif classId == 6 or classId == 7 then
+            weight = weight * 0.60
+        end
+    elseif infliction >= 0.5 then
+        if classId == 2 or classId == 5 then
+            weight = weight * 1.10
+        end
+    end
+
+    return weight
+end
+
+local function GetFallbackZombieClass(stage)
+    if stage == "late" then
+        if CanUseZombieClass(4) then
+            return 4
+        end
+
+        if CanUseZombieClass(2) then
+            return 2
+        end
+
+        if CanUseZombieClass(3) then
+            return 3
+        end
+
+        return DEFAULT_CLASS_ID
+    end
+
+    if stage == "mid" and CanUseZombieClass(2) then
+        return 2
+    end
+
+    return DEFAULT_CLASS_ID
+end
+
+local function BuildWeightedZombiePool(bot)
+    local stage = GetZombieStage()
+    local stageWeights = ZOMBIE_CLASS_WEIGHTS[stage]
+    local infliction = GetInfliction()
+    local humanCount = team.NumPlayers(TEAM_SURVIVORS)
+    local currentClass = bot:GetZombieClass()
+    local totalWeight = 0
+    local entries = {}
+
+    for classId, baseWeight in pairs(stageWeights) do
+        if CanUseZombieClass(classId) and not RESET_TO_DEFAULT_CLASSES[classId] then
+            local weight = baseWeight
+
+            weight = weight * GetTemperamentClassMultiplier(bot, classId)
+            weight = ApplyPressureBias(weight, classId, infliction, humanCount)
+
+            local population = GetAliveZombieClassCount(classId, bot)
+            local populationPenalty = CLASS_POPULATION_PENALTY[classId] or 0.25
+
+            weight = weight / (1 + population * populationPenalty)
+
+            if population == 0 then
+                weight = weight * EMPTY_CLASS_BONUS
+            end
+
+            if currentClass == classId then
+                weight = weight * SAME_CLASS_REPEAT_PENALTY
+            end
+
+            if weight > 0 then
+                totalWeight = totalWeight + weight
+                entries[#entries + 1] = {
+                    classId = classId,
+                    weight = weight
+                }
+            end
+        end
+    end
+
+    return entries, totalWeight, stage
+end
+
+local function PickWeightedZombieClass(entries, totalWeight, fallbackClassId)
+    if totalWeight <= 0 or #entries <= 0 then
+        return fallbackClassId
+    end
+
+    local roll = math.Rand(0, totalWeight)
+
+    for _, entry in ipairs(entries) do
+        roll = roll - entry.weight
+        if roll <= 0 then
+            return entry.classId
+        end
+    end
+
+    return entries[#entries].classId
+end
+
+local function PickZombieClass(bot)
+    local currentClass = bot:GetZombieClass()
+
+    if RESET_TO_DEFAULT_CLASSES[currentClass] then
+        return DEFAULT_CLASS_ID
+    end
+
+    local entries, totalWeight, stage = BuildWeightedZombiePool(bot)
+    local fallbackClassId = GetFallbackZombieClass(stage)
+
+    return PickWeightedZombieClass(entries, totalWeight, fallbackClassId)
 end
 
 local function StripHumanWeapons(bot)
@@ -72,47 +300,6 @@ local function SetKnockbackEnabled(bot)
     else
         bot:AddEFlags(EFL_NO_DAMAGE_FORCES)
     end
-end
-
-local function PickZombieClass(bot)
-    local ruleSet = GetZombieRuleSet()
-    local currentClass = bot:GetZombieClass()
-
-    -- Keep the original behavior of forcing some special classes back to a safe default.
-    if not ruleSet.weighted and RESET_TO_DEFAULT_CLASSES[currentClass] then
-        return ruleSet.fallback
-    end
-
-    local totalClasses = #ruleSet.classes
-    local roll = math.random(1, totalClasses * 2)
-
-    if ruleSet.weighted then
-        for _, weightedRule in ipairs(ruleSet.weighted) do
-            local maxRoll = weightedRule.to or math.huge
-
-            if roll >= weightedRule.from and roll <= maxRoll then
-                if CanUseZombieClass(weightedRule.classId) then
-                    return weightedRule.classId
-                end
-
-                return ruleSet.fallback
-            end
-        end
-
-        if RESET_TO_DEFAULT_CLASSES[currentClass] then
-            return ruleSet.fallback
-        end
-    elseif roll > totalClasses then
-        return ruleSet.fallback
-    end
-
-    local classId = ruleSet.classes[roll]
-
-    if classId and CanUseZombieClass(classId) then
-        return classId
-    end
-
-    return ruleSet.fallback
 end
 
 local function ApplyCounterStrikeZombieHealth(bot)
