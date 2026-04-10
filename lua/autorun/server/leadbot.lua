@@ -3,25 +3,7 @@ if engine.ActiveGamemode() ~= "zombiesurvival" then return end
 LeadBot = LeadBot or {}
 LeadBot.NoNavMesh = LeadBot.NoNavMesh or {}
 LeadBot.Models = LeadBot.Models or {}
-
---[[-----
-
-CONFIG START CONFIG START
-CONFIG START CONFIG START
-CONFIG START CONFIG START
-
---]]-----
-
--- Name Prefix
 LeadBot.Prefix = LeadBot.Prefix or ""
-
---[[-----
-
-CONFIG END CONFIG END
-CONFIG END CONFIG END
-CONFIG END CONFIG END
-
---]]-----
 
 local function IncludeModuleFile(path, filename)
     if string.StartsWith(filename, "cl_") then
@@ -47,26 +29,20 @@ local function IncludeModules()
         table.Add(files, file.Find("leadbot/modules/" .. dirName .. "/cl_*.lua", "LUA") or {})
 
         for _, fileName in ipairs(files) do
-            local path = "leadbot/modules/" .. dirName .. "/" .. fileName
-            IncludeModuleFile(path, fileName)
+            IncludeModuleFile("leadbot/modules/" .. dirName .. "/" .. fileName, fileName)
         end
     end
 end
 
-local function IncludeMapConfig()
-    local mapName = game.GetMap()
-    local mapFiles = file.Find("leadbot/gamemodes/" .. mapName .. ".lua", "LUA")
+local function IncludeMapOrGamemodeConfig()
+    local gamemodeName = engine.ActiveGamemode()
+    local gamemodePath = "leadbot/gamemodes/" .. gamemodeName .. ".lua"
 
-    if mapFiles and mapFiles[1] then
-        include("leadbot/gamemodes/" .. mapName .. ".lua")
+    if file.Exists(gamemodePath, "LUA") then
+        include(gamemodePath)
     end
 end
 
--- Load the base gamemode integration once.
 include("leadbot/gamemodes/zombiesurvival.lua")
-
--- Load optional modules.
 IncludeModules()
-
--- Load optional map-specific overrides.
-IncludeMapConfig()
+IncludeMapOrGamemodeConfig()
