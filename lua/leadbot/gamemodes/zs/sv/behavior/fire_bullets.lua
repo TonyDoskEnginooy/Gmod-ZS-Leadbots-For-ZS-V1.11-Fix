@@ -1,29 +1,27 @@
--- Cache cvars
 local leadbot_hinfammo = GetConVar("leadbot_hinfammo")
 
--- Credit goes out to 女儿 for this infinite ammo code :D --
 local function KeepInfiniteAmmoForSurvivorBots(bot, weapon)
     if not leadbot_hinfammo:GetBool() then return end
-    if not bot:Team() == TEAM_SURVIVORS then return end
+    if bot:Team() ~= TEAM_SURVIVORS then return end
 
-    local maxClip = weapon:GetMaxClip1()
+    local maxClip1 = weapon:GetMaxClip1()
     local maxClip2 = weapon:GetMaxClip2()
-    local primAmmoType = weapon:GetPrimaryAmmoType()
-    local secAmmoType = weapon:GetSecondaryAmmoType()
+    local primaryAmmoType = weapon:GetPrimaryAmmoType()
+    local secondaryAmmoType = weapon:GetSecondaryAmmoType()
 
-    if maxClip > 0 then
-        weapon:SetClip1(maxClip)
+    if maxClip1 > 0 then
+        weapon:SetClip1(maxClip1)
 
-        if primAmmoType ~= -1 then
-            bot:SetAmmo(maxClip, primAmmoType)
+        if primaryAmmoType ~= -1 then
+            bot:SetAmmo(maxClip1, primaryAmmoType)
         end
     end
 
     if maxClip2 > 0 then
         weapon:SetClip2(maxClip2)
- 
-        if secAmmoType ~= -1 and secAmmoType ~= primAmmoType then
-            bot:SetAmmo(maxClip2, secAmmoType)
+
+        if secondaryAmmoType ~= -1 and secondaryAmmoType ~= primaryAmmoType then
+            bot:SetAmmo(maxClip2, secondaryAmmoType)
         end
     end
 end

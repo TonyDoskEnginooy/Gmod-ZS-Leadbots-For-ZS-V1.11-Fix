@@ -27,7 +27,7 @@ local function SetCampingEyeAngles(bot, controller)
 end
 
 local function Cheat(bot)
-    if not bot:Team() == TEAM_ZOMBIE or not leadbot_zcheats:GetBool() then return end
+    if not (bot:Team() == TEAM_ZOMBIE) or not leadbot_zcheats:GetBool() then return end
 
     if bot:GetZombieClass() == 8 then 
         bot:Freeze(false)
@@ -529,7 +529,7 @@ local function Retreat(bot, controller, mv, distance, strategy)
 end
 
 local function SelectWeapon(bot, distance)
-    if not bot:Team() == TEAM_SURVIVORS then return end
+    if not (bot:Team() == TEAM_SURVIVORS) then return end
 
     local tier2 = GetConVar("zs_rewards_1"):GetInt()
     local tier3 = GetConVar("zs_rewards_3"):GetInt()
@@ -688,7 +688,7 @@ local function UpdateMovement(bot, controller, mv, strategy, aimskill, lerp, ler
 
         if bot:GetVelocity():Length2DSqr() <= 225 then
             if not bot:IsFrozen() then 
-                if not IsValid(controller.Target) and bot:Team() == TEAM_SURVIVORS or bot:Team() == TEAM_ZOMBIE then
+                if not IsValid(controller.Target) and (bot:Team() == TEAM_SURVIVORS or bot:Team() == TEAM_ZOMBIE) then
                     if controller.nextStuckJump < CurTime() then
                         if not bot:Crouching() then
                             controller.NextJump = 0

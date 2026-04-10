@@ -2,129 +2,151 @@
 local leadbot_cs = GetConVar("leadbot_cs")
 local leadbot_knockback = GetConVar("leadbot_knockback")
 
-local survivorClasses = {
-    default = 1
+-- The base ZS gamemode also uses class 1 as the reset/default state for humans.
+local DEFAULT_CLASS_ID = 1
+
+local RESET_TO_DEFAULT_CLASSES = {
+    [9] = true,
+    [11] = true
 }
 
-local zombieClasses
-zombieClasses = {
-    default = 1,
-    [0.5] = {
-        toDefault = { [9] = true, [11] = true },
-        new = { 1, 5, 6, 7 },
-        default = 1,
-        getNew = function(bot)
-            local clsTab = zombieClasses[0.5]
-            local rand = math.random(1, 6)
-            local randCls = clsTab.new[rand]
-            local zombie = randCls and ZombieClasses[randCls]
-            local curCls =  bot:GetZombieClass()
-            return (rand > 3 or clsTab.toDefault[curCls]) and clsTab.default or
-                    zombie and INFLICTION >= zombie.Threshold and randCls or 
-                    clsTab.default
-        end
+local ZOMBIE_CLASS_RULES = {
+    early = {
+        fallback = 1,
+        classes = { 1, 5, 6, 7 }
     },
-    [0.75] = {
-        toDefault = { [9] = true, [11] = true },
-        new = { 1, 2, 3, 5, 6, 7, 8 },
-        default = 2,
-        getNew = function(bot)
-            local clsTab = zombieClasses[0.75]
-            local totalValidCls = #clsTab.new
-            local rand = math.random(1, totalValidCls * 2)
-            local randCls = clsTab.new[rand]
-            local zombie = randCls and ZombieClasses[randCls]
-            local curCls = bot:GetZombieClass()
-            return (rand > totalValidCls or clsTab.toDefault[curCls]) and clsTab.default or
-                    INFLICTION >= zombie.Threshold and randCls or 
-                    clsTab.default
-        end
+    mid = {
+        fallback = 2,
+        classes = { 1, 2, 3, 5, 6, 7, 8 }
     },
-    [1] = {
-        toDefault = { [9] = true, [11] = true },
-        new = { 1, 2, 3, 4, 5, 6, 7, 8 },
-        newWithWeight = { [9] = 4, [12] = 2 },
-        default = 4,
-        getNew = function(bot)
-            local clsTab = zombieClasses[1]
-            local totalValidCls = #clsTab.new
-            local rand = math.random(1, totalValidCls * 2)
-            local randCls = clsTab.new[rand]
-            local zombie = randCls and ZombieClasses[randCls]
-            local zombieWeight9 = ZombieClasses[clsTab.newWithWeight[9]]
-            local zombieWeight12 = ZombieClasses[clsTab.newWithWeight[12]]
-            local curCls =  bot:GetZombieClass()
-            return rand >= 12 and INFLICTION >= zombieWeight12.Threshold and clsTab.newWithWeight[12] or
-                   rand >= 9 and rand < 12 and INFLICTION >= zombieWeight9.Threshold and clsTab.newWithWeight[9] or
-                   clsTab.toDefault[curCls] and clsTab.default or
-                   rand < totalValidCls and INFLICTION >= zombie.Threshold and randCls or 
-                   clsTab.default
-        end
+    late = {
+        fallback = 4,
+        classes = { 1, 2, 3, 4, 5, 6, 7, 8 },
+        weighted = {
+            { from = 12, classId = 2 },
+            { from = 9, to = 11, classId = 4 }
+        }
     }
 }
 
-local function GetClsTab()
-    local clsTab
-    local lastGotInfliction
+local function GetInfliction()
+    local infliction = tonumber(INFLICTION) or 0
+    return math.Clamp(infliction, 0, 1)
+end
 
-    for maxInfliction, newClsTab in pairs(zombieClasses) do
-        if not isnumber(maxInfliction) then continue end
+local function GetZombieClassData(classId)
+    return ZombieClasses and ZombieClasses[classId] or nil
+end
 
-        if INFLICTION <= maxInfliction then
-            if not lastGotInfliction or maxInfliction < lastGotInfliction then
-                lastGotInfliction = maxInfliction
-                clsTab = newClsTab
-            end
-        end
+local function CanUseZombieClass(classId)
+    local classData = GetZombieClassData(classId)
+    return classData ~= nil and GetInfliction() >= (classData.Threshold or 0)
+end
+
+local function GetZombieRuleSet()
+    local infliction = GetInfliction()
+
+    if infliction <= 0.5 then
+        return ZOMBIE_CLASS_RULES.early
     end
 
-    return clsTab
+    if infliction <= 0.75 then
+        return ZOMBIE_CLASS_RULES.mid
+    end
+
+    return ZOMBIE_CLASS_RULES.late
 end
 
 local function StripHumanWeapons(bot)
-    local weaps = bot:GetWeapons()
+    for _, weapon in ipairs(bot:GetWeapons()) do
+        local weaponClass = weapon:GetClass()
 
-    for _, weap in ipairs(weaps) do
-        local weapClass = weap:GetClass()
-
-        if weapons.IsBasedOn(weapClass, "weapon_zs_base") then
-            bot:StripWeapon(weapClass)
+        if weapons.IsBasedOn(weaponClass, "weapon_zs_base") then
+            bot:StripWeapon(weaponClass)
         end
     end
 end
 
-local function SetKnockBack(bot)
-    if leadbot_knockback:GetInt() < 1 then 
-        bot:AddEFlags(EFL_NO_DAMAGE_FORCES)
-    else
+local function SetKnockbackEnabled(bot)
+    if leadbot_knockback:GetBool() then
         bot:RemoveEFlags(EFL_NO_DAMAGE_FORCES)
+    else
+        bot:AddEFlags(EFL_NO_DAMAGE_FORCES)
     end
+end
+
+local function PickZombieClass(bot)
+    local ruleSet = GetZombieRuleSet()
+    local currentClass = bot:GetZombieClass()
+
+    -- Keep the original behavior of forcing some special classes back to a safe default.
+    if not ruleSet.weighted and RESET_TO_DEFAULT_CLASSES[currentClass] then
+        return ruleSet.fallback
+    end
+
+    local totalClasses = #ruleSet.classes
+    local roll = math.random(1, totalClasses * 2)
+
+    if ruleSet.weighted then
+        for _, weightedRule in ipairs(ruleSet.weighted) do
+            local maxRoll = weightedRule.to or math.huge
+
+            if roll >= weightedRule.from and roll <= maxRoll then
+                if CanUseZombieClass(weightedRule.classId) then
+                    return weightedRule.classId
+                end
+
+                return ruleSet.fallback
+            end
+        end
+
+        if RESET_TO_DEFAULT_CLASSES[currentClass] then
+            return ruleSet.fallback
+        end
+    elseif roll > totalClasses then
+        return ruleSet.fallback
+    end
+
+    local classId = ruleSet.classes[roll]
+
+    if classId and CanUseZombieClass(classId) then
+        return classId
+    end
+
+    return ruleSet.fallback
+end
+
+local function ApplyCounterStrikeZombieHealth(bot)
+    timer.Simple(1, function()
+        if not IsValid(bot) or bot:Team() ~= TEAM_ZOMBIE then return end
+
+        bot:SetMaxHealth(1000)
+        bot:SetHealth(1000)
+    end)
 end
 
 function LeadBot.Spawn(bot)
-    SetKnockBack(bot)
+    SetKnockbackEnabled(bot)
 
-    if bot:Team() == TEAM_SURVIVORS then
-        bot:SetZombieClass(survivorClasses.default)
+    local teamId = bot:Team()
+
+    if teamId == TEAM_SURVIVORS then
+        -- This is a state reset, not a real survivor class system.
+        bot:SetZombieClass(DEFAULT_CLASS_ID)
+        return
     end
 
-    if bot:Team() == TEAM_ZOMBIE then
-        StripHumanWeapons(bot)
-
-        if leadbot_cs:GetBool() then 
-            timer.Simple(1, function() 
-                if not IsValid(bot) then return end
-    
-                bot:SetMaxHealth(1000)
-                bot:SetHealth(1000) 
-            end)
-    
-            bot:SetZombieClass(zombieClasses.default)
-        else
-            local clsTab = GetClsTab()
-            local nesCls = clsTab.getNew(bot)
-    
-            bot:SetZombieClass(nesCls)
-        end
+    if teamId ~= TEAM_ZOMBIE then
+        return
     end
+
+    StripHumanWeapons(bot)
+
+    if leadbot_cs:GetBool() then
+        bot:SetZombieClass(DEFAULT_CLASS_ID)
+        ApplyCounterStrikeZombieHealth(bot)
+        return
+    end
+
+    bot:SetZombieClass(PickZombieClass(bot))
 end
