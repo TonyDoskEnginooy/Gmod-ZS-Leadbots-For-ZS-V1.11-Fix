@@ -10,7 +10,6 @@ local defaultBotNames = {
     mossmanarctic = "Bushe",
     barney = "Barney Calhoun",
 
-
     dod_american = "Boldier",
     dod_german = "German Soldier",
 
@@ -103,93 +102,169 @@ local leadbot_names = GetConVar("leadbot_names")
 local leadbot_models = GetConVar("leadbot_models")
 local leadbot_name_prefix = GetConVar("leadbot_name_prefix")
 local leadbot_strategy = GetConVar("leadbot_strategy")
+local sv_cheats = GetConVar("sv_cheats")
+
+local function SplitCSV(str)
+    local values = {}
+
+    for _, value in ipairs(string.Split(str or "", ",")) do
+        value = string.Trim(value)
+        if value ~= "" then
+            values[#values + 1] = value
+        end
+    end
+
+    return values
+end
+
+local function NormalizeModelName(modelName)
+    if not modelName or modelName == "" then return nil end
+    return player_manager.TranslateToPlayerModelName(modelName) or modelName
+end
+
+local function GetConfiguredModelPool()
+    local models = {}
+    local seen = {}
+
+    for _, value in ipairs(SplitCSV(leadbot_models and leadbot_models:GetString() or "")) do
+        local modelName = NormalizeModelName(value)
+        if modelName and not seen[modelName] then
+            seen[modelName] = true
+            models[#models + 1] = modelName
+        end
+    end
+
+    return models
+end
+
+local function GetDefaultModelPool()
+    local models = {}
+    local seen = {}
+
+    for _, value in pairs(player_manager.AllValidModels()) do
+        local modelName = NormalizeModelName(value)
+        if modelName and not seen[modelName] then
+            seen[modelName] = true
+            models[#models + 1] = modelName
+        end
+    end
+
+    return models
+end
+
+local function IsModelNameTaken(modelName)
+    if not modelName or modelName == "" then return false end
+
+    local modelNameLower = string.lower(modelName)
+    local defaultName = defaultBotNames[modelNameLower]
+    local defaultNameLower = defaultName and string.lower(defaultName) or nil
+
+    for _, ply in ipairs(player.GetBots()) do
+        local nick = string.lower(ply:Nick())
+
+        if ply.OriginalName == modelName then
+            return true
+        end
+
+        if nick == modelNameLower then
+            return true
+        end
+
+        if defaultNameLower and nick == defaultNameLower then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function PickModelFromPool(pool, preferUnused)
+    if #pool == 0 then return nil end
+
+    if preferUnused then
+        local available = {}
+
+        for _, modelName in ipairs(pool) do
+            if not IsModelNameTaken(modelName) then
+                available[#available + 1] = modelName
+            end
+        end
+
+        if #available > 0 then
+            return table.Random(available)
+        end
+    end
+
+    return table.Random(pool)
+end
+
+local function GetRandomModelName(preferUnused)
+    if LeadBot.PlayerColor == "default" then
+        return "kleiner"
+    end
+
+    local pool = GetConfiguredModelPool()
+    if #pool == 0 then
+        pool = GetDefaultModelPool()
+    end
+
+    return PickModelFromPool(pool, preferUnused) or "kleiner"
+end
+
+local function FormatBotName(modelName)
+    local resolvedName = string.lower(modelName or "leadbot")
+    resolvedName = defaultBotNames[resolvedName] or resolvedName
+
+    local pathParts = string.Split(resolvedName, "/")
+    resolvedName = pathParts[#pathParts]
+
+    local nameParts = string.Split(resolvedName, " ")
+    for i, part in ipairs(nameParts) do
+        if part ~= "" then
+            nameParts[i] = string.upper(string.sub(part, 1, 1)) .. string.sub(part, 2)
+        end
+    end
+
+    return table.concat(nameParts, " ")
+end
 
 local function ForceNavGeneration()
-    if LeadBot.CheckNavMesh and not game.SinglePlayer() and not navmesh.IsLoaded() then
-        if GetConVar("sv_cheats"):GetInt() == 1 then
-            RunConsoleCommand("nav_analyze")
-            RunConsoleCommand("nav_generate")
-        else
-            ErrorNoHalt("There is no navmesh! Generate one using \"nav_generate\"!\n")
-        end
+    if not LeadBot.CheckNavMesh then return end
+    if game.SinglePlayer() then return end
+    if navmesh.IsLoaded() then return end
+
+    if sv_cheats and sv_cheats:GetInt() == 1 then
+        RunConsoleCommand("nav_analyze")
+        RunConsoleCommand("nav_generate")
+    else
+        ErrorNoHalt("There is no navmesh! Generate one using \"nav_generate\"!\n")
     end
 end
 
 local function GetBotName()
+    local generated
     local original_name
 
-    if leadbot_names:GetString() ~= "" then
-        generated = table.Random(string.Split(leadbot_names:GetString(), ","))
-    elseif leadbot_models:GetString() == "" then
-        local name, _ = table.Random(player_manager.AllValidModels())
-        local translate = player_manager.TranslateToPlayerModelName(name)
-        name = translate
-
-        for _, ply in ipairs(player.GetBots()) do
-            if ply.OriginalName == name or string.lower(ply:Nick()) == name or defaultBotNames[name] and ply:Nick() == defaultBotNames[name] then
-                name = ""
-            end
-        end
-
-        if name == "" then
-            local i = 0
-            while name == "" do
-                i = i + 1
-                local str = player_manager.TranslateToPlayerModelName(table.Random(player_manager.AllValidModels()))
-                for _, ply in ipairs(player.GetBots()) do
-                    if ply.OriginalName == str or string.lower(ply:Nick()) == str or defaultBotNames[str] and ply:Nick() == defaultBotNames[str] then
-                        str = ""
-                    end
-                end
-
-                if str == "" and i < #player_manager.AllValidModels() then continue end
-                name = str
-            end
-        end
-
-        original_name = name
-        name = string.lower(name)
-        name = defaultBotNames[name] or name
-
-        local name_Generated = string.Split(name, "/")
-        name_Generated = name_Generated[#name_Generated]
-        name_Generated = string.Split(name_Generated, " ")
-
-        for i, namestr in ipairs(name_Generated) do
-            name_Generated[i] = string.upper(string.sub(namestr, 1, 1)) .. string.sub(namestr, 2)
-        end
-
-        name_Generated = table.concat(name_Generated, " ")
-        generated = name_Generated
+    local customNames = SplitCSV(leadbot_names and leadbot_names:GetString() or "")
+    if #customNames > 0 then
+        generated = table.Random(customNames)
+    else
+        original_name = GetRandomModelName(true)
+        generated = FormatBotName(original_name)
     end
 
     if LeadBot.PlayerColor == "default" then
+        original_name = "kleiner"
         generated = "Kleiner"
     end
 
-    generated = leadbot_name_prefix:GetString() .. generated
+    generated = (leadbot_name_prefix and leadbot_name_prefix:GetString() or "") .. (generated or "Leadbot")
 
-    local name = LeadBot.Prefix .. generated
-
-    return name, original_name
+    return LeadBot.Prefix .. generated, original_name
 end
 
 local function GetBotModel()
-    local model = ""
-
-    if LeadBot.PlayerColor ~= "default" then
-        if model == "" then
-            if leadbot_models:GetString() ~= "" then
-                model = table.Random(string.Split(leadbot_models:GetString(), ","))
-            else
-                model = player_manager.TranslateToPlayerModelName(table.Random(player_manager.AllValidModels()))
-            end
-        end
-    else
-        model = "kleiner"
-    end
-
-    return model
+    return GetRandomModelName(false)
 end
 
 local function GetBotColors()
@@ -199,7 +274,7 @@ local function GetBotColors()
     if LeadBot.PlayerColor ~= "default" then
         local botcolor = ColorRand()
         local botweaponcolor = ColorRand()
-        
+
         color = Vector(botcolor.r / 255, botcolor.g / 255, botcolor.b / 255)
         weaponcolor = Vector(botweaponcolor.r / 255, botweaponcolor.g / 255, botweaponcolor.b / 255)
     else
@@ -212,7 +287,9 @@ end
 function LeadBot.AddBotOverride(bot)
     if math.random(1, 2) == 1 then
         timer.Simple(math.random(1, 4), function()
-            LeadBot.TalkToMe(bot, "join")
+            if IsValid(bot) then
+                LeadBot.TalkToMe(bot, "join")
+            end
         end)
     end
 end
@@ -221,14 +298,13 @@ function LeadBot.AddBotControllerOverride(bot, controller)
 end
 
 function LeadBot.AddBot()
-    if player.GetCount() == game.MaxPlayers() then
+    if player.GetCount() >= game.MaxPlayers() then
         MsgN("[LeadBot] Player limit reached!")
         return
     end
 
     ForceNavGeneration()
 
-    local generated = "Leadbot #" .. #player.GetBots() + 1
     local name, original_name = GetBotName()
     local model = original_name or GetBotModel()
     local color, weaponcolor = GetBotColors()
@@ -238,25 +314,40 @@ function LeadBot.AddBot()
     local shootskill = math.random(4, 16)
 
     local bot = player.CreateNextBot(name)
-
-    if !IsValid(bot) then
+    if not IsValid(bot) then
         MsgN("[LeadBot] Unable to create bot!")
         return
     end
 
-    if leadbot_strategy:GetBool() then
+    if leadbot_strategy and leadbot_strategy:GetBool() then
         strategy = math.random(0, LeadBot.Strategies)
     end
 
     bot.freeRoam = true
-    bot.LeadBot_Config = { model, color, weaponcolor, strategy, survskill, zomskill, shootskill }
 
-    -- for legacy purposes, will be removed soon when gamemodes are updated
+    bot.LeadBot_Config = {
+        model = model,
+        color = color,
+        weaponcolor = weaponcolor,
+        strategy = strategy,
+        survskill = survskill,
+        zomskill = zomskill,
+        shootskill = shootskill
+    }
+
     bot.BotStrategy = strategy
     bot.OriginalName = original_name
-    bot.ControllerBot = ents.Create("leadbot_navigator")
-    bot.ControllerBot:Spawn()
-    bot.ControllerBot:SetOwner(bot)
+
+    local controller = ents.Create("leadbot_navigator")
+    if IsValid(controller) then
+        bot.ControllerBot = controller
+        controller:Spawn()
+        controller:SetOwner(bot)
+        LeadBot.AddBotControllerOverride(bot, controller)
+    else
+        bot.ControllerBot = nil
+        MsgN("[LeadBot] Unable to create leadbot_navigator!")
+    end
+
     LeadBot.AddBotOverride(bot)
-    LeadBot.AddBotControllerOverride(bot, bot.ControllerBot)
 end

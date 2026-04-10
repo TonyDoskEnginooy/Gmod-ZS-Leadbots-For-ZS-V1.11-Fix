@@ -1,96 +1,91 @@
--- Base player meta functions for LeadBot.
--- There are more overrides and additions being done in the module files.
-
 local player_meta = FindMetaTable("Player")
-local oldInfo = player_meta.GetInfo
+local oldGetInfo = player_meta.GetInfo
 
-function player_meta:IsLBot(realbotsonly)
-    if realbotsonly == true then
-        return self:IsBot()
-    else
-        return self:IsBot() or LeadBot.AFKBotOverride and self.Botized or false
+local DEFAULT_COLOR = Vector(0, 0, 0)
+
+local function GetConfigValue(ply, key, defaultValue)
+    local cfg = ply.LeadBot_Config
+    if not cfg then
+        return defaultValue
     end
+
+    local value = cfg[key]
+    if value == nil then
+        return defaultValue
+    end
+
+    return value
+end
+
+function player_meta:IsLBot(realBotsOnly)
+    if realBotsOnly then
+        return self:IsBot()
+    end
+
+    return self:IsBot() or (LeadBot and LeadBot.AFKBotOverride and self.Botized) or false
 end
 
 function player_meta:LBGetStrategy()
-    if self.LeadBot_Config then
-        return self.LeadBot_Config[4]
-    else
-        return 0
-    end
+    return GetConfigValue(self, "strategy", 0)
 end
 
 function player_meta:LBGetSurvSkill()
-    if self.LeadBot_Config then
-        return self.LeadBot_Config[5]
-    else
-        return 0
-    end
+    return GetConfigValue(self, "survskill", 0)
 end
 
 function player_meta:LBGetZomSkill()
-    if self.LeadBot_Config then
-        return self.LeadBot_Config[6]
-    else
-        return 0
-    end
+    return GetConfigValue(self, "zomskill", 0)
 end
 
 function player_meta:LBGetShootSkill()
-    if self.LeadBot_Config then
-        return self.LeadBot_Config[7]
-    else
-        return 0
-    end
+    return GetConfigValue(self, "shootskill", 0)
 end
 
 function player_meta:LBGetModel()
-    if self.LeadBot_Config then
-        return self.LeadBot_Config[1]
-    else
-        return "kleiner"
-    end
+    return GetConfigValue(self, "model", "kleiner")
 end
 
-function player_meta:LBGetColor(weapon)
-    if self.LeadBot_Config then
-        if weapon == true then
-            return self.LeadBot_Config[3]
-        else
-            return self.LeadBot_Config[2]
-        end
-    else
-        return Vector(0, 0, 0)
+function player_meta:LBGetColor(isWeaponColor)
+    if isWeaponColor then
+        return GetConfigValue(self, "weaponcolor", DEFAULT_COLOR)
     end
+
+    return GetConfigValue(self, "color", DEFAULT_COLOR)
 end
 
 function player_meta:GetInfo(convar)
-    if self:IsBot() and self:IsLBot() then
+    if self:IsBot() or self:IsLBot() then
         if convar == "cl_playermodel" then
-            return self:LBGetModel() --self.LeadBot_Config[1]
+            return self:LBGetModel()
         elseif convar == "cl_playercolor" then
-            return self:LBGetColor() --self.LeadBot_Config[2]
+            return self:LBGetColor()
         elseif convar == "cl_weaponcolor" then
-            return self:LBGetColor(true) --self.LeadBot_Config[3]
+            return self:LBGetColor(true)
         else
             return ""
         end
-    else
-        return oldInfo(self, convar)
     end
+
+    return oldGetInfo(self, convar)
 end
 
 function player_meta:GetController()
-    if self:IsLBot() then
-        local controller = self.ControllerBot
+    if not self:IsLBot() then
+        return nil
+    end
 
-        if not IsValid(controller) then
-            controller = ents.Create("leadbot_navigator")
-            controller:Spawn()
-            controller:SetOwner()
-            self.ControllerBot = controller
-        end
-    
+    local controller = self.ControllerBot
+    if IsValid(controller) then
         return controller
     end
+
+    controller = ents.Create("leadbot_navigator")
+    if not IsValid(controller) then
+        return nil
+    end
+
+    controller:Spawn()
+    self.ControllerBot = controller
+
+    return controller
 end

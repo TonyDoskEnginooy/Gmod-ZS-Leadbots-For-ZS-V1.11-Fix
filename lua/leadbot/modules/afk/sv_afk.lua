@@ -1,64 +1,129 @@
 util.AddNetworkString("LeadBot_AFK_Off")
 
-concommand.Add("leadbot_afk", function(ply, _, args) LeadBot.Botize(ply) end, nil, "Adds a LeadBot ;)")
+local afkTimeCvar = CreateConVar("leadbot_afk_timetoafk", "300", {FCVAR_ARCHIVE})
 
-local time = CreateConVar("leadbot_afk_timetoafk", "300", {FCVAR_ARCHIVE})
-local meta = FindMetaTable("Player")
+local function IsValidAFKPlayer(ply)
+    return IsValid(ply) and ply:IsPlayer()
+end
+
+local function GetAFKTimeout()
+    return afkTimeCvar:GetFloat()
+end
+
+local function IsAFKEnabled()
+    return afkTimeCvar:GetBool()
+end
+
+local function ResetAFKTimer(ply)
+    ply.LastAFKCheck = CurTime() + GetAFKTimeout()
+end
+
+local function ShouldResetAFKTimer(ply)
+    return ply:KeyDown(IN_FORWARD)
+        or ply:KeyDown(IN_BACK)
+        or ply:KeyDown(IN_MOVELEFT)
+        or ply:KeyDown(IN_MOVERIGHT)
+        or ply:KeyDown(IN_ATTACK)
+end
+
+local function ShouldBecomeAFKBot(ply)
+    return ply.LastAFKCheck < CurTime()
+        and not ply:IsLBot()
+        and not ply:GetNWBool("LeadBot_AFK")
+        and ply:Team() == TEAM_ZOMBIE
+end
+
+concommand.Add("leadbot_afk", function(ply)
+    if not IsValidAFKPlayer(ply) then return end
+    LeadBot.Botize(ply)
+end, nil, "Adds a LeadBot ;)")
 
 net.Receive("LeadBot_AFK_Off", function(_, ply)
+    if not IsValidAFKPlayer(ply) then return end
+
     LeadBot.Botize(ply, false)
-    ply.LastAFKCheck = CurTime() + time:GetFloat()
+    ResetAFKTimer(ply)
 end)
 
 hook.Add("PlayerTick", "LeadBot_AFK", function(ply)
-    if !time:GetBool() then return end
+    if not IsAFKEnabled() then return end
+    if not IsValidAFKPlayer(ply) then return end
 
-    ply.LastAFKCheck = ply.LastAFKCheck or CurTime() + time:GetFloat()
-
-    if ply:KeyDown(IN_FORWARD) or ply:KeyDown(IN_BACK) or ply:KeyDown(IN_MOVELEFT) or ply:KeyDown(IN_MOVERIGHT) or ply:KeyDown(IN_ATTACK) then
-        ply.LastAFKCheck = CurTime() + time:GetFloat()
+    if ply.LastAFKCheck == nil then
+        ResetAFKTimer(ply)
     end
 
-    if ply.LastAFKCheck < CurTime() and !ply:IsLBot() and !ply:GetNWBool("LeadBot_AFK") and ply:Team() == TEAM_ZOMBIE then
+    if ShouldResetAFKTimer(ply) then
+        ResetAFKTimer(ply)
+    end
+
+    if ShouldBecomeAFKBot(ply) then
         LeadBot.Botize(ply, true)
     end
 end)
 
 function LeadBot.Botize(ply, togg)
-    if togg == nil then togg = !ply.Botized end
+    if not IsValidAFKPlayer(ply) then return false end
 
-    if ((!togg and ply.Botized) or (togg and !ply.Botized)) and LeadBot.SuicideAFK and ply:Alive() then
+    if togg == nil then
+        togg = not ply.Botized
+    end
+
+    local stateChanging = (not togg and ply.Botized) or (togg and not ply.Botized)
+
+    if stateChanging and LeadBot.SuicideAFK and ply:Alive() then
         ply:Kill()
     end
 
-    if !togg then
+    if not togg then
         ply:SetNWBool("LeadBot_AFK", false)
         ply.Botized = false
+
         if IsValid(ply.ControllerBot) then
             ply.ControllerBot:Remove()
+            ply.ControllerBot = nil
         end
+
         ply.LastSegmented = CurTime()
         ply.CurSegment = 2
-    else
-        ply:SetNWBool("LeadBot_AFK", true)
-        ply.Botized = true
-        ply.BotColor = ply:GetPlayerColor()
-        ply.BotSkin = ply:GetSkin()
-        ply.BotModel = ply:GetModel()
-        ply.BotWColor = ply:GetWeaponColor()
-        ply.ControllerBot = ents.Create("leadbot_navigator")
-        ply.ControllerBot:Spawn()
-        ply.ControllerBot:SetOwner(ply)
-        ply.ControllerBot:SetFOV(ply:GetFOV())
-        ply.LastSegmented = CurTime()
-        ply.CurSegment = 2
-        if GetConVar("leadbot_strategy"):GetBool() then
-            ply.BotStrategy = math.random(0, LeadBot.Strategies)
-        end
-        ply.LeadBot_Config = {}
-        ply.LeadBot_Config[1] = ply.BotModel
-        ply.LeadBot_Config[2] = ply.BotColor
-        ply.LeadBot_Config[3] = ply.BotWColor
-        ply.LeadBot_Config[4] = ply.BotStrategy
+
+        return true
     end
+
+    ply:SetNWBool("LeadBot_AFK", true)
+    ply.Botized = true
+    ply.BotColor = ply:GetPlayerColor()
+    ply.BotSkin = ply:GetSkin()
+    ply.BotModel = ply:GetModel()
+    ply.BotWColor = ply:GetWeaponColor()
+
+    local controller = ents.Create("leadbot_navigator")
+    if not IsValid(controller) then
+        ply:SetNWBool("LeadBot_AFK", false)
+        ply.Botized = false
+        return false
+    end
+
+    controller:Spawn()
+    controller:SetOwner(ply)
+    controller:SetFOV(ply:GetFOV())
+
+    ply.ControllerBot = controller
+    ply.LastSegmented = CurTime()
+    ply.CurSegment = 2
+
+    if GetConVar("leadbot_strategy"):GetBool() then
+        ply.BotStrategy = math.random(0, LeadBot.Strategies)
+    else
+        ply.BotStrategy = nil
+    end
+
+    ply.LeadBot_Config = {
+        model = ply.BotModel,
+        color = ply.BotColor,
+        weaponcolor = ply.BotWColor,
+        strategy = ply.BotStrategy
+    }
+
+    return true
 end

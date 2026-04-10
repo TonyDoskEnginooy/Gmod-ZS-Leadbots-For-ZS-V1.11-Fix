@@ -1,68 +1,72 @@
+local function CallLeadBotPlayerHook(ply, fn, ...)
+    if not IsValid(ply) or not ply:IsPlayer() or not ply:IsLBot() then
+        return
+    end
+
+    if type(fn) ~= "function" then
+        return
+    end
+
+    return fn(ply, ...)
+end
+
 hook.Add("InitPostEntity", "ZS_LeadBot_InitPostEntity", function()
-    ZSB.InitPostEntity()
+    if type(ZSB) == "table" and type(ZSB.InitPostEntity) == "function" then
+        return ZSB.InitPostEntity()
+    end
 end)
 
 hook.Add("PlayerInitialSpawn", "ZS_LeadBot_PlayerInitialSpawn", function(ply)
-    if ply:IsLBot() then
-        LeadBot.InitialSpawn(ply)
-    end
+    return CallLeadBotPlayerHook(ply, LeadBot.InitialSpawn)
 end)
 
 hook.Add("PlayerDisconnected", "ZS_LeadBot_Disconnect", function(ply)
-    if ply:IsLBot() then
-        LeadBot.Disconnected(ply)
-    end
+    return CallLeadBotPlayerHook(ply, LeadBot.Disconnected)
 end)
 
 hook.Add("SetupMove", "ZS_LeadBot_SetupMove", function(ply, mv, cmd)
-    if ply:IsLBot() then
-        LeadBot.SetupMove(ply, cmd, mv)
-    end
+    return CallLeadBotPlayerHook(ply, LeadBot.SetupMove, cmd, mv)
 end)
 
 hook.Add("StartCommand", "ZS_LeadBot_StartCommand", function(ply, cmd)
-    if ply:IsLBot() then
-        LeadBot.StartCommand(ply, cmd)
-    end
+    return CallLeadBotPlayerHook(ply, LeadBot.StartCommand, cmd)
 end)
 
 hook.Add("PostPlayerDeath", "ZS_LeadBot_PostPlayerDeath", function(ply)
-    if ply:IsLBot() then
-        LeadBot.PostDeath(ply)
+    return CallLeadBotPlayerHook(ply, LeadBot.PostDeath)
+end)
+
+hook.Add("Tick", "ZS_LeadBot_Tick", function()
+    if type(LeadBot) == "table" and type(LeadBot.Tick) == "function" then
+        return LeadBot.Tick()
     end
 end)
 
-hook.Add("Tick", "LeadBot_Tick", function()    
-    LeadBot.Tick()
+hook.Add("PlayerSpawn", "ZS_LeadBot_PlayerSpawn", function(ply)
+    return CallLeadBotPlayerHook(ply, LeadBot.Spawn)
 end)
-
-hook.Add("PlayerSpawn", "ZS_LeadBot_PlayerSpawn", function(ply)    
-    if ply:IsLBot() then
-        LeadBot.Spawn(ply)
-    end
-end) 
 
 hook.Add("EntityTakeDamage", "ZS_LeadBot_EntityTakeDamage", function(victim, dmgInfo)
-    if victim:IsPlayer() and victim:IsLBot() then
-        local aggressor = dmgInfo:GetAttacker()
-        local hp = victim:Health()
-
-        LeadBot.TakeDamage(aggressor, victim, hp, dmgInfo)
+    if not IsValid(victim) or not victim:IsPlayer() or not victim:IsLBot() then
+        return
     end
+
+    return LeadBot.TakeDamage(dmgInfo:GetAttacker(), victim, victim:Health(), dmgInfo)
 end)
 
 hook.Add("PlayerDeath", "ZS_LeadBot_PlayerDeath", function(victim, inflictor, attacker)
-    if victim:IsLBot() then
-        LeadBot.Death(attacker, victim)
-    end
+    return CallLeadBotPlayerHook(victim, LeadBot.Death, attacker)
 end)
 
 hook.Add("EntityFireBullets", "ZS_LeadBot_EntityFireBullets", function(ent, data)
-    if ent:IsLBot() then
-        local weapon = ent:GetActiveWeapon()
-
-        if IsValid(weapon) then
-            LeadBot.FireBullets(ent, weapon, data)
-        end
+    if not IsValid(ent) or not ent:IsLBot() then
+        return
     end
+
+    local weapon = ent:GetActiveWeapon()
+    if not IsValid(weapon) then
+        return
+    end
+
+    return LeadBot.FireBullets(ent, weapon, data)
 end)
