@@ -1,13 +1,10 @@
--- basically finished :I --f
---      By Tony Dosk Enginooy. 8====================================================================================D 
---         This module is intended to run with ZS v1.11 Fix by Xalalau
+-- This module is intended to run with ZS v1.11 Fix by Xalalau
 
-if game.SinglePlayer() or CLIENT then
+if CLIENT or game.SinglePlayer() then
     return
 end
 
---[[GAMEMODE CONFIGURATION START]]--
-
+-- Gamemode configuration.
 LeadBot.Gamemode = "zombiesurvival"
 LeadBot.RespawnAllowed = true -- allows bots to respawn automatically when dead
 LeadBot.PlayerColor = true -- disable this to get the default gmod style players
@@ -18,11 +15,9 @@ LeadBot.SuicideAFK = false -- kill the player when entering/exiting afk
 LeadBot.NoFlashlight = true -- disable flashlight being enabled in dark areas
 LeadBot.Strategies = 3 -- how many strategies can the bot pick from
 
---[[GAMEMODE CONFIGURATION END]]--
-
 ZSB = {
     Map = {},
-    Util= {},
+    Util = {},
 
     DEBUG = false,
     INTERMISSION = 1,
@@ -30,86 +25,166 @@ ZSB = {
     playerCSSpeed = 200
 }
 
-concommand.Add("leadbot_add", CmdAddBot, nil, "Adds a LeadBot")
-concommand.Add("leadbot_kick", CmdKickBot, nil, "Kicks LeadBots (all is avaliable!)")
+local HORDE_TIMER_NAME = "Hordes"
+local INTERMISSION_TIMER_NAME = "INTERMISSION_MESSAGE"
+local REAL_PLAYER_INITIAL_SPAWN_HOOK = "ZS_LeadBot_RealPlayerInitialSpawn"
+local DEFAULT_INTERMISSION_SECONDS = 60
+
 CreateConVar("leadbot_strategy", "1", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Enables the strategy system for newly created bots.")
-CreateConVar("leadbot_names", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot names, seperated by commas.")
-CreateConVar("leadbot_models", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot models, seperated by commas.")
+CreateConVar("leadbot_names", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot names, separated by commas.")
+CreateConVar("leadbot_models", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot models, separated by commas.")
 CreateConVar("leadbot_name_prefix", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot name prefix")
-CreateConVar("leadbot_minzombies", "1", {FCVAR_ARCHIVE}, "What Percentage of Leadbots become Zombies at the Beginning (this includes players as well)", 0, 100)
-local leadbot_zchance =
-CreateConVar("leadbot_zchance", "0", {FCVAR_ARCHIVE}, "If you want a chance to become a zombie when you spawn", 0 , 1)
-local leadbot_hordes = 
-CreateConVar("leadbot_hordes", "0", {FCVAR_ARCHIVE}, "If you want to play horde mode instead of using quota", 0 , 1)
-CreateConVar("leadbot_hinfammo", "1", {FCVAR_ARCHIVE}, "If you want survivor bots to have an infinite amount of clip ammo so that they survive longer", 0 , 1)
-CreateConVar("leadbot_hregen", "1", {FCVAR_ARCHIVE}, "If you want survivor bots to heal every time a survivor dies so that they survive longer", 0 , 1)
-CreateConVar("leadbot_zcheats", "0", {FCVAR_ARCHIVE}, "If you want zombie bots to cheat a little so that they're better at killing humans'", 0 , 1)
-CreateConVar("leadbot_collision", "0", {FCVAR_ARCHIVE}, "If you want bots to not collide with each other or others", 0 , 1)
-CreateConVar("leadbot_knockback", "1", {FCVAR_ARCHIVE}, "If you want to not experience any knockback", 0 , 1)
-local leadbot_mapchanges =
-CreateConVar("leadbot_mapchanges", "0", {FCVAR_ARCHIVE}, "If you want certain things to be removed from certain maps in order for bots to not get stuck and/or confused", 0, 1)
-CreateConVar("leadbot_cs", "0", {FCVAR_ARCHIVE}, "If you want THE counter strike ZM experience", 0 , 1)
-CreateConVar("leadbot_skill", "4", {FCVAR_ARCHIVE}, "Changes how good the bots' aims are (4 = random)", 0 , 4)
+CreateConVar("leadbot_minzombies", "1", {FCVAR_ARCHIVE}, "What percentage of players become zombies at the beginning.", 0, 100)
+
+local leadbot_zchance = CreateConVar(
+    "leadbot_zchance",
+    "0",
+    {FCVAR_ARCHIVE},
+    "Whether players can spawn as zombies.",
+    0,
+    1
+)
+
+local leadbot_hordes = CreateConVar(
+    "leadbot_hordes",
+    "0",
+    {FCVAR_ARCHIVE},
+    "Whether to play horde mode instead of using quota.",
+    0,
+    1
+)
+
+CreateConVar("leadbot_hinfammo", "1", {FCVAR_ARCHIVE}, "Whether survivor bots should have infinite clip ammo.", 0, 1)
+CreateConVar("leadbot_hregen", "1", {FCVAR_ARCHIVE}, "Whether survivor bots should heal when a survivor dies.", 0, 1)
+CreateConVar("leadbot_zcheats", "0", {FCVAR_ARCHIVE}, "Whether zombie bots should cheat slightly.", 0, 1)
+CreateConVar("leadbot_collision", "0", {FCVAR_ARCHIVE}, "Whether bots should collide with each other and others.", 0, 1)
+CreateConVar("leadbot_knockback", "1", {FCVAR_ARCHIVE}, "Whether players should experience knockback.", 0, 1)
+
+local leadbot_mapchanges = CreateConVar(
+    "leadbot_mapchanges",
+    "0",
+    {FCVAR_ARCHIVE},
+    "Whether certain map entities should be adjusted to reduce bot pathing issues.",
+    0,
+    1
+)
+
+CreateConVar("leadbot_cs", "0", {FCVAR_ARCHIVE}, "Whether to enable the Counter-Strike style experience.", 0, 1)
+CreateConVar("leadbot_skill", "4", {FCVAR_ARCHIVE}, "Changes how good the bots' aim is. (4 = random)", 0, 4)
 
 local zs_roundtime = GetConVar("zs_roundtime")
 local zs_human_deadline = GetConVar("zs_human_deadline")
 
 resource.AddFile("sound/intermission.mp3")
 
-include("zs/sv/map_handler.lua")
-include("zs/sv/player_meta.lua")
-include("zs/sv/util.lua")
-include("zs/sv/add_bot.lua")
-
-local function IncludeFilesInDir(dir)
+local function includeFilesInDir(dir)
     local files, dirs = file.Find(dir .. "/*", "LUA")
-    for _, f in ipairs(files) do
-        include(dir .. "/" .. f)
+
+    for _, fileName in ipairs(files) do
+        include(dir .. "/" .. fileName)
     end
-    for _, d in ipairs(dirs) do
-        IncludeFilesInDir(dir .. "/" .. d)
+
+    for _, dirName in ipairs(dirs) do
+        includeFilesInDir(dir .. "/" .. dirName)
     end
 end
 
-IncludeFilesInDir("leadbot/gamemodes/zs/sv/behavior")
+local function resetIntermissionState()
+    ZSB.INTERMISSION = 1
+    ZSB.INTERMISSION_FAKE_TIMER = DEFAULT_INTERMISSION_SECONDS
+end
 
-include("zs/sv/behavior_hook.lua")
+local function createHordeTimers()
+    timer.Create(HORDE_TIMER_NAME, DEFAULT_INTERMISSION_SECONDS, 0, function()
+        RunConsoleCommand("leadbot_add", "1")
+        ZSB.INTERMISSION = 0
+    end)
 
-cvars.AddChangeCallback("leadbot_quota", function(_, oldval, val)
-    oldval = tonumber(oldval)
-    val = tonumber(val)
+    timer.Create(INTERMISSION_TIMER_NAME, 1, DEFAULT_INTERMISSION_SECONDS, function()
+        PrintMessage(HUD_PRINTTALK, "Infection begins in " .. ZSB.INTERMISSION_FAKE_TIMER .. " Seconds!")
+        ZSB.INTERMISSION_FAKE_TIMER = ZSB.INTERMISSION_FAKE_TIMER - 1
+    end)
+end
 
-    if oldval and val and oldval > 0 and val < 1 then
-        RunConsoleCommand("leadbot_kick", "all")
+local function startHordeTimers()
+    if not timer.Exists(HORDE_TIMER_NAME) or not timer.Exists(INTERMISSION_TIMER_NAME) then
+        createHordeTimers()
     end
-end)
+
+    resetIntermissionState()
+    timer.Start(HORDE_TIMER_NAME)
+    timer.Start(INTERMISSION_TIMER_NAME)
+end
+
+local function stopHordeTimers()
+    if timer.Exists(HORDE_TIMER_NAME) then
+        timer.Stop(HORDE_TIMER_NAME)
+    end
+
+    if timer.Exists(INTERMISSION_TIMER_NAME) then
+        timer.Stop(INTERMISSION_TIMER_NAME)
+    end
+
+    resetIntermissionState()
+end
+
+local function shouldRedeemPlayerOnJoin()
+    if leadbot_zchance:GetBool() then
+        return false
+    end
+
+    if INFLICTION < 0.5 then
+        return true
+    end
+
+    if not zs_roundtime or not zs_human_deadline then
+        return false
+    end
+
+    return CurTime() <= (zs_roundtime:GetInt() * 0.5) and not zs_human_deadline:GetBool()
+end
+
+local function movePlayerToFixedSpawnIfNeeded(ply)
+    if not leadbot_mapchanges:GetBool() then
+        return
+    end
+
+    local fixedPos = ZSB.Map:GetValue("fixedPlayerSpawn")
+    if fixedPos then
+        ply:SetPos(fixedPos)
+    end
+end
 
 function CmdKickBot(ply, _, args)
-    if not args[1] or IsValid(ply) and not ply:IsSuperAdmin() then return end
-    
-    if args[1] ~= "all" then
-        for k, bot in ipairs(player.GetBots()) do
-            if string.find(bot:GetName(), args[1]) then
-                bot:Kick()
-                return
-            end
-        end
-    else
-        for k, bot in ipairs(player.GetBots()) do
+    if (IsValid(ply) and not ply:IsSuperAdmin()) or not args[1] then
+        return
+    end
+
+    local query = args[1]
+
+    if query == "all" then
+        for _, bot in ipairs(player.GetBots()) do
             bot:Kick()
+        end
+
+        return
+    end
+
+    for _, bot in ipairs(player.GetBots()) do
+        if string.find(bot:GetName(), query, 1, true) then
+            bot:Kick()
+            return
         end
     end
 end
 
 function CmdAddBot(ply, _, args)
-    if IsValid(ply) and not ply:IsSuperAdmin() then return end
-    
-    local amount = 1
-    
-    if tonumber(args[1]) then
-        amount = tonumber(args[1])
+    if IsValid(ply) and not ply:IsSuperAdmin() then
+        return
     end
-    
+
+    local amount = math.max(1, math.floor(tonumber(args[1]) or 1))
+
     for i = 1, amount do
         timer.Simple(i * 0.1, function()
             LeadBot.AddBot()
@@ -117,54 +192,64 @@ function CmdAddBot(ply, _, args)
     end
 end
 
+concommand.Add("leadbot_add", CmdAddBot, nil, "Adds a LeadBot")
+concommand.Add("leadbot_kick", CmdKickBot, nil, "Kicks LeadBots. Use 'all' to kick every bot.")
+
+include("zs/sv/map_handler.lua")
+include("zs/sv/player_meta.lua")
+include("zs/sv/util.lua")
+include("zs/sv/add_bot.lua")
+includeFilesInDir("leadbot/gamemodes/zs/sv/behavior")
+include("zs/sv/behavior_hook.lua")
+
+cvars.AddChangeCallback("leadbot_quota", function(_, oldValue, newValue)
+    oldValue = tonumber(oldValue)
+    newValue = tonumber(newValue)
+
+    if oldValue and newValue and oldValue > 0 and newValue < 1 then
+        RunConsoleCommand("leadbot_kick", "all")
+    end
+end)
+
 function ZSB.InitPostEntity()
-    if not game.SinglePlayer() and leadbot_hordes:GetInt() >= 1 then
-        timer.Create("Hordes", 60, -1, function() 
-            RunConsoleCommand("leadbot_add", "1")
-            ZSB.INTERMISSION = 0
-        end )
-    
-        timer.Create("INTERMISSION_MESSAGE", 1, 60, function() 
-            PrintMessage( 4, "Infection begins in " .. ZSB.INTERMISSION_FAKE_TIMER .. " Seconds!")
-            ZSB.INTERMISSION_FAKE_TIMER = ZSB.INTERMISSION_FAKE_TIMER - 1
-        end)
+    if leadbot_hordes:GetBool() then
+        createHordeTimers()
     end
 
     ZSB.Map.Init()
 
-    timer.Start("zombieNearDetector")
-    timer.Start("zombieStuckDetector")
+    if timer.Exists("zombieNearDetector") then
+        timer.Start("zombieNearDetector")
+    end
+
+    if timer.Exists("zombieStuckDetector") then
+        timer.Start("zombieStuckDetector")
+    end
 end
 
-hook.Add("PlayerInitialSpawn", "ZS_LeadBot_RealPlayerInitialSpawn", function(ply)
-    if ply:IsBot() then return end
+hook.Add("PlayerInitialSpawn", REAL_PLAYER_INITIAL_SPAWN_HOOK, function(ply)
+    if not IsValid(ply) or ply:IsBot() then
+        return
+    end
 
-    if leadbot_zchance:GetInt() < 1 and INFLICTION < 0.5 or
-       leadbot_zchance:GetInt() < 1 and CurTime() <= zs_roundtime:GetInt()*0.5 and not zs_human_deadline:GetBool()
-    then 
+    if shouldRedeemPlayerOnJoin() then
         timer.Simple(2, function()
-            local mapName = game.GetMap()
+            if not IsValid(ply) then
+                return
+            end
 
             ply:Redeem()
-
-            if leadbot_mapchanges:GetInt() >= 1 then 
-                local fixedPos = ZSB.Map:GetValue("fixedPlayerSpawn")
-
-                if fixedPos then
-                    ply:SetPos(fixedPos)
-                end
-            end
+            movePlayerToFixedSpawnIfNeeded(ply)
         end)
     end
 
-    if leadbot_hordes:GetInt() >= 1 and player.GetCount() == 1 then
+    if leadbot_hordes:GetBool() and player.GetCount() == 1 then
         ply:EmitSound("intermission.mp3", CHAN_REPLACE)
-        timer.Start("Hordes")
-        timer.Start("INTERMISSION_MESSAGE")
+        startHordeTimers()
+        return
     end
 
-    if leadbot_hordes:GetInt() < 1 and player.GetCount() >= 1 then
-        timer.Stop("Hordes")
-        timer.Stop("INTERMISSION_MESSAGE")
+    if not leadbot_hordes:GetBool() and player.GetCount() >= 1 then
+        stopHordeTimers()
     end
 end)

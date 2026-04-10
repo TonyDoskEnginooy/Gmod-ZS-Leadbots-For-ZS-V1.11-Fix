@@ -1,13 +1,49 @@
-if SERVER then AddCSLuaFile() end
+if SERVER then
+	AddCSLuaFile()
+end
 
 ENT.Base = "base_nextbot"
 ENT.Type = "nextbot"
+
+local function ComputePathCost(bot, area, fromArea, ladder, elevator, length)
+	if not IsValid(fromArea) then
+		return 0
+	end
+
+	if not bot.loco:IsAreaTraversable(area) then
+		return -1
+	end
+
+	local dist
+	if IsValid(ladder) then
+		dist = ladder:GetLength()
+	elseif length > 0 then
+		dist = length
+	else
+		dist = (area:GetCenter() - fromArea:GetCenter()):Length()
+	end
+
+	local cost = dist + fromArea:GetCostSoFar()
+	local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange(area)
+
+	if deltaZ >= bot.loco:GetStepHeight() then
+		if deltaZ >= bot.loco:GetMaxJumpHeight() then
+			return -1
+		end
+
+		cost = cost + (5 * dist)
+	elseif deltaZ < -bot.loco:GetDeathDropHeight() then
+		return -1
+	end
+
+	return cost
+end
 
 function ENT:Initialize()
 	if CLIENT then return end
 
 	self:SetModel("models/player.mdl")
-	self:SetNoDraw(!GetConVar("developer"):GetBool())
+	self:SetNoDraw(not GetConVar("developer"):GetBool())
 	self:SetSolid(SOLID_NONE)
 
 	self.PosGen = nil
@@ -18,99 +54,64 @@ function ENT:Initialize()
 	self.LastSegmented = 0
 	self.ForgetTarget = 0
 	self.NextCenter = 0
-	self.LookAt = Angle(0, 0, 0)
+	self.LookAt = angle_zero
 	self.LookAtTime = 0
-	self.goalPos = Vector(0, 0, 0)
+	self.goalPos = vector_origin
 	self.strafeAngle = 0
 	self.nextStuckJump = 0
 
-	if LeadBot.AddControllerOverride then
+	if LeadBot and LeadBot.AddControllerOverride then
 		LeadBot.AddControllerOverride(self)
 	end
 end
 
+function ENT:CreatePath()
+	local path = Path("Follow")
+	path:SetMinLookAheadDistance(10)
+	path:SetGoalTolerance(20)
+	return path
+end
+
+function ENT:ComputePath()
+	if not self.PosGen then
+		return false
+	end
+
+	self.P = self.P or self:CreatePath()
+
+	self.P:Compute(self, self.PosGen, function(area, fromArea, ladder, elevator, length)
+		return ComputePathCost(self, area, fromArea, ladder, elevator, length)
+	end)
+
+	if not self.P:IsValid() then
+		return false
+	end
+
+	self.cur_segment = 2
+	return true
+end
+
 function ENT:ChasePos()
-	self.P = Path("Follow")
-	self.P:SetMinLookAheadDistance(10)
-	self.P:SetGoalTolerance(20)
-	self.P:Compute(self, self.PosGen)
-
-	if !self.P:IsValid() then return end
-
-	while ( self.P:IsValid() and self.PosGen ) do
-		self.P:Compute(self, self.PosGen, function( area, fromArea, ladder, elevator, length )
-			if ( !IsValid( fromArea ) ) then
-
-				-- first area in path, no cost
-				return 0
-			
-			else
-			
-				if ( !self.loco:IsAreaTraversable( area ) ) then
-					-- our locomotor says we can't move here
-					return -1
-				end
-
-				-- compute distance traveled along path so far
-				local dist = 0
-
-				if ( IsValid( ladder ) ) then
-					dist = ladder:GetLength()
-				elseif ( length > 0 ) then
-					-- optimization to avoid recomputing length
-					dist = length
-				else
-					dist = ( area:GetCenter() - fromArea:GetCenter() ):GetLength()
-				end
-
-				local cost = dist + fromArea:GetCostSoFar()
-
-				-- check height change
-				local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange( area )
-				if ( deltaZ >= self.loco:GetStepHeight() ) then
-					if ( deltaZ >= self.loco:GetMaxJumpHeight() ) then
-						-- too high to reach
-						return -1
-					end
-
-					-- jumping is slower than flat ground
-					local jumpPenalty = 5
-					cost = cost + jumpPenalty * dist
-				elseif ( deltaZ < -self.loco:GetDeathDropHeight() ) then
-					-- too far to drop
-					return -1
-				end
-
-				return cost
-			end
-		end )
-		self.cur_segment = 2
-
+	while self.PosGen do
+		self:ComputePath()
 		coroutine.wait(1)
-		coroutine.yield()
 	end
 end
 
 function ENT:OnInjured()
-	return false
 end
 
 function ENT:OnKilled()
-	return false
 end
 
 function ENT:IsNPC()
 	return false
 end
 
-function ENT:Health()
-	return nil
-end
-
 function ENT:RunBehaviour()
-	while (true) do
+	while true do
 		if self.PosGen then
-			self:ChasePos({})
+			self:ChasePos()
 		end
 
 		coroutine.yield()

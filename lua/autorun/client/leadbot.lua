@@ -1,14 +1,13 @@
 -- Modules
-if engine.ActiveGamemode() == "zombiesurvival" then 
-    local _, dir = file.Find("leadbot/modules/*", "LUA")
+if engine.ActiveGamemode() ~= "zombiesurvival" then return end
 
-    for k, v in pairs(dir) do
-        local f = table.Add(file.Find("leadbot/modules/" .. v .. "/cl_*.lua", "LUA"), file.Find("leadbot/modules/" .. v .. "/sh_*.lua", "LUA"))
+local _, moduleDirs = file.Find("leadbot/modules/*", "LUA")
 
-        for i, o in pairs(f) do
-            local file = "leadbot/modules/" .. v .. "/" .. o
+for _, moduleDir in ipairs(moduleDirs) do
+    local files = file.Find("leadbot/modules/" .. moduleDir .. "/cl_*.lua", "LUA")
+    table.Add(files, file.Find("leadbot/modules/" .. moduleDir .. "/sh_*.lua", "LUA"))
 
-            include(file)
-        end
+    for _, fileName in ipairs(files) do
+        include("leadbot/modules/" .. moduleDir .. "/" .. fileName)
     end
 end

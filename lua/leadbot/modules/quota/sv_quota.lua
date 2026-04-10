@@ -1,46 +1,94 @@
-local convar1 = CreateConVar("leadbot_quota", "8", {FCVAR_ARCHIVE}, "TF2 Style Quota for bots\nUse leadbot_add if you want unkickable bots")
+local quotaCvar = CreateConVar(
+    "leadbot_quota",
+    "8",
+    {FCVAR_ARCHIVE},
+    "TF2 Style Quota for bots\nUse leadbot_add if you want unkickable bots",
+    0
+)
+
 local nextCheck = 0
+local quotaGeneration = 0
 
-cvars.AddChangeCallback("leadbot_quota", function(_, oldval, val)
-    oldval = tonumber(oldval)
-    val = tonumber(val)
+local function GetQuota()
+    return math.max(quotaCvar:GetInt(), 0)
+end
 
-    if oldval and val and oldval > 0 and val < 1 then
+local function GetLeadBots()
+    local bots = {}
+
+    for _, ply in ipairs(player.GetBots()) do
+        if IsValid(ply) and ply:IsLBot(true) then
+            bots[#bots + 1] = ply
+        end
+    end
+
+    return bots
+end
+
+local function GetAllowedBotCount()
+    return math.max(GetQuota() - #player.GetHumans(), 0)
+end
+
+local function KickExcessBots(bots, allowedBots)
+    if #bots <= allowedBots then return end
+
+    for i = allowedBots + 1, #bots do
+        local bot = bots[i]
+        if IsValid(bot) then
+            bot:Kick()
+        end
+    end
+end
+
+local function ScheduleMissingBots(currentBots, allowedBots)
+    local missingBots = allowedBots - currentBots
+    if missingBots <= 0 then return end
+
+    local currentGeneration = quotaGeneration
+
+    nextCheck = CurTime() + 0.5
+
+    for i = 1, missingBots do
+        timer.Simple(0.1 + (i * 0.5), function()
+            if currentGeneration ~= quotaGeneration then return end
+            if LeadBot.AFKBotOverride then return end
+            if GetQuota() <= 0 then return end
+
+            local liveAllowedBots = GetAllowedBotCount()
+            local liveBots = GetLeadBots()
+
+            if #liveBots >= liveAllowedBots then return end
+
+            LeadBot.AddBot()
+        end)
+
+        nextCheck = nextCheck + 0.5
+    end
+end
+
+cvars.AddChangeCallback("leadbot_quota", function(_, oldValue, newValue)
+    oldValue = tonumber(oldValue) or 0
+    newValue = tonumber(newValue) or 0
+
+    quotaGeneration = quotaGeneration + 1
+
+    if oldValue > 0 and newValue <= 0 then
         RunConsoleCommand("leadbot_kick", "all")
     end
-end)
+end, "LeadBot_Quota")
 
 hook.Add("Think", "LeadBot_Quota", function()
-    if !convar1:GetBool() or LeadBot.AFKBotOverride then return end
+    if LeadBot.AFKBotOverride then return end
+    if GetQuota() <= 0 then return end
+    if nextCheck >= CurTime() then return end
 
-    if nextCheck < CurTime() then
-        local bots = {}
-        local max = convar1:GetInt() - #player.GetHumans()
+    local bots = GetLeadBots()
+    local allowedBots = GetAllowedBotCount()
 
-        for _, ply in pairs(player.GetBots()) do
-            if ply:IsLBot(true) then
-                table.insert(bots, ply)
-            end
-        end
+    KickExcessBots(bots, allowedBots)
+    ScheduleMissingBots(#bots, allowedBots)
 
-        for i = 1, #bots do
-            if i >= convar1:GetInt() then
-                bots[i]:Kick()
-            end
-        end
-
-        if #bots < max then
-            nextCheck = CurTime() + 0.5
-
-            for i = 1, max - #bots do
-                timer.Simple(0.1 + (i * 0.5), function()
-                    LeadBot.AddBot()
-                end)
-
-                nextCheck = nextCheck + 0.5
-            end
-        else
-            nextCheck = CurTime() + 1
-        end
+    if #bots >= allowedBots then
+        nextCheck = CurTime() + 1
     end
 end)
