@@ -35,29 +35,6 @@ timer.Create("zombieNearDetector", 20, 0, function()
     end
 end)
 
-timer.Create("zombieStuckDetector", 20, 0, function()
-    if team.NumPlayers(TEAM_ZOMBIE) <= 0 then return end
-
-    for _, bot in ipairs(player.GetBots()) do
-        if not IsValid(bot) then continue end
-        if bot:Team() ~= TEAM_ZOMBIE then continue end
-        if bot:IsFrozen() then continue end
-        if bot:GetVelocity():Length2DSqr() > 225 then continue end
-
-        local controller = bot.ControllerBot
-        if not controller then continue end
-
-        local target = controller.Target
-        local invalidTarget = not IsValid(target)
-        local deadNonPlayerTarget = IsValid(target) and not target:IsPlayer() and target:Health() <= 0
-        local unsupportedZombieClass = bot:GetZombieClass() > 3
-
-        if invalidTarget or deadNonPlayerTarget or unsupportedZombieClass then
-            bot:Kill()
-        end
-    end
-end)
-
 local zombieStuckState = setmetatable({}, { __mode = "k" })
 
 local unstuckOffsets = {
@@ -110,6 +87,17 @@ timer.Create("zombieStuckDetector", 1, 0, function()
         if not IsValid(controller) then continue end
 
         local pos = bot:GetPos()
+
+        if controller.IsTraversingStairs == true or ((controller.LastStairTime or 0) + 0.45 > CurTime()) then
+            local state = zombieStuckState[bot]
+
+            if state then
+                state.lastPos = pos
+                state.stuckSince = CurTime()
+            end
+
+            continue
+        end
         local state = zombieStuckState[bot]
 
         if not state then
