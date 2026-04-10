@@ -1,54 +1,117 @@
 util.AddNetworkString("botVoiceStart")
 
-LeadBot.VoicePreset = {}
-LeadBot.VoiceModels = {}
+LeadBot.VoicePreset = LeadBot.VoicePreset or {}
+LeadBot.VoiceModels = LeadBot.VoiceModels or {}
 
-local convar = CreateConVar("leadbot_voice", "random", {FCVAR_ARCHIVE}, "Voice Preset.\nOptions are: \n- \"random\"\n- \"" .. table.concat(table.GetKeys(LeadBot.VoicePreset), "\"\n- \"") .. "\"")
+local convar
 
-function LeadBot.TalkToMe(ply, type)
-    if not IsValid(ply) or not ply.IsLBot or not ply:IsLBot(true) then return end
+local function GetAvailableVoicePresetNames()
+    local names = table.GetKeys(LeadBot.VoicePreset)
+    table.sort(names)
+    return names
+end
 
-    local hear = {}
-    local sound = ""
-    local selectedvoice = "metropolice"
-    local voice = convar:GetString()
+local function BuildVoicePresetHelpText()
+    local names = GetAvailableVoicePresetNames()
 
-    if voice == "random" then
-        if !ply.LeadBot_Voice then
-            local model = ply:Nick()
-            if LeadBot.VoiceModels[model] then
-                ply.LeadBot_Voice = LeadBot.VoiceModels[model]
-            else
-                local _, selectedplyvoice = table.Random(LeadBot.VoicePreset)
-                ply.LeadBot_Voice = selectedplyvoice
-            end
+    if #names == 0 then
+        return "Voice Preset.\nOptions are:\n- \"random\"\n- \"\""
+    end
+
+    return "Voice Preset.\nOptions are:\n- \"random\"\n- \"" .. table.concat(names, "\"\n- \"") .. "\"\n- \"\""
+end
+
+local function GetBotVoiceKey(ply)
+    if not IsValid(ply) or not ply.IsLBot or not ply:IsLBot(true) then
+        return nil
+    end
+
+    local voiceCvarValue = convar and convar:GetString() or "random"
+
+    if voiceCvarValue == "" then
+        return nil
+    end
+
+    if voiceCvarValue ~= "random" then
+        if LeadBot.VoicePreset[voiceCvarValue] then
+            return voiceCvarValue
         end
 
-        if !LeadBot.VoicePreset[ply.LeadBot_Voice] then
-            ply.LeadBot_Voice = "metropolice"
-        end
+        return "metropolice"
+    end
 
-        selectedvoice = ply.LeadBot_Voice
-    elseif LeadBot.VoicePreset[voice] then
-        selectedvoice = voice
-    elseif voice == "" then
+    if not ply.LeadBot_Voice then
+        local botName = ply:Nick()
+        local mappedVoice = LeadBot.VoiceModels[botName]
+
+        if mappedVoice and LeadBot.VoicePreset[mappedVoice] then
+            ply.LeadBot_Voice = mappedVoice
+        else
+            local _, randomVoiceKey = table.Random(LeadBot.VoicePreset)
+            ply.LeadBot_Voice = randomVoiceKey or "metropolice"
+        end
+    end
+
+    if not LeadBot.VoicePreset[ply.LeadBot_Voice] then
+        ply.LeadBot_Voice = "metropolice"
+    end
+
+    return ply.LeadBot_Voice
+end
+
+local function GetVoiceListeners(talker)
+    local listeners = {}
+
+    for _, listener in ipairs(player.GetAll()) do
+        local canHear = hook.Call("PlayerCanHearPlayersVoice", gmod.GetGamemode(), listener, talker)
+
+        if canHear then
+            listeners[#listeners + 1] = listener
+        end
+    end
+
+    return listeners
+end
+
+local function GetVoiceLine(voiceKey, voiceType)
+    if not voiceType then
+        return ""
+    end
+
+    local preset = LeadBot.VoicePreset[voiceKey]
+    if not preset then
+        return ""
+    end
+
+    local lines = preset[voiceType]
+    if not istable(lines) or #lines == 0 then
+        return ""
+    end
+
+    return table.Random(lines) or ""
+end
+
+function LeadBot.TalkToMe(ply, voiceType)
+    if not IsValid(ply) or not ply.IsLBot or not ply:IsLBot(true) then
         return
     end
 
-    for k, v in pairs(player.GetAll()) do
-        if hook.Call("PlayerCanHearPlayersVoice", gmod.GetGamemode(), v, ply) then
-            table.insert(hear, v)
-        end
+    local voiceKey = GetBotVoiceKey(ply)
+    if not voiceKey then
+        return
     end
 
-    if type and LeadBot.VoicePreset[selectedvoice][type] then
-        sound = table.Random(LeadBot.VoicePreset[selectedvoice][type])
+    local listeners = GetVoiceListeners(ply)
+    if #listeners == 0 then
+        return
     end
+
+    local soundPath = GetVoiceLine(voiceKey, voiceType)
 
     net.Start("botVoiceStart")
         net.WriteEntity(ply)
-        net.WriteString(sound)
-    net.Send(hear)
+        net.WriteString(soundPath)
+    net.Send(listeners)
 end
 
 -- Valve Games
@@ -194,3 +257,10 @@ LeadBot.VoiceModels["LackEatTra"] = "female"
 LeadBot.VoiceModels["Moqueefa"] = "female"
 LeadBot.VoiceModels["Latisha"] = "female"
 LeadBot.VoiceModels["Lackee"] = "female"
+
+convar = CreateConVar(
+    "leadbot_voice",
+    "random",
+    {FCVAR_ARCHIVE},
+    BuildVoicePresetHelpText()
+)
