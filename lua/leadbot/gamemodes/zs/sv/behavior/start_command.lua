@@ -29,6 +29,7 @@ local function EnsureControllerState(controller)
     controller.NextJump = controller.NextJump or 0
     controller.NextCenter = controller.NextCenter or 0
     controller.nextStuckJump = controller.nextStuckJump or 0
+    controller.LastStairTime = controller.LastStairTime or 0
     controller.strafeAngle = controller.strafeAngle or 1
 end
 

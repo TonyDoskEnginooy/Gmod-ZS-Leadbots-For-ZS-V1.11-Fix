@@ -5,38 +5,48 @@ end
 ENT.Base = "base_nextbot"
 ENT.Type = "nextbot"
 
+local function AreaHasAttributes(area, attributes)
+    return area and area:IsValid() and area:HasAttributes(attributes)
+end
+
 local function ComputePathCost(bot, area, fromArea, ladder, elevator, length)
-	if not IsValid(fromArea) then
-		return 0
-	end
+    if not IsValid(fromArea) then
+        return 0
+    end
 
-	if not bot.loco:IsAreaTraversable(area) then
-		return -1
-	end
+    if not bot.loco:IsAreaTraversable(area) then
+        return -1
+    end
 
-	local dist
-	if IsValid(ladder) then
-		dist = ladder:GetLength()
-	elseif length > 0 then
-		dist = length
-	else
-		dist = (area:GetCenter() - fromArea:GetCenter()):Length()
-	end
+    local dist
+    if IsValid(ladder) then
+        dist = ladder:GetLength()
+    elseif length > 0 then
+        dist = length
+    else
+        dist = (area:GetCenter() - fromArea:GetCenter()):Length()
+    end
 
-	local cost = dist + fromArea:GetCostSoFar()
-	local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange(area)
+    local cost = dist + fromArea:GetCostSoFar()
+    local deltaZ = fromArea:ComputeAdjacentConnectionHeightChange(area)
+    local isStairs = AreaHasAttributes(area, NAV_MESH_STAIRS)
+        or AreaHasAttributes(fromArea, NAV_MESH_STAIRS)
 
-	if deltaZ >= bot.loco:GetStepHeight() then
-		if deltaZ >= bot.loco:GetMaxJumpHeight() then
-			return -1
-		end
+    if deltaZ >= bot.loco:GetStepHeight() then
+        if not isStairs and deltaZ >= bot.loco:GetMaxJumpHeight() then
+            return -1
+        end
 
-		cost = cost + (5 * dist)
-	elseif deltaZ < -bot.loco:GetDeathDropHeight() then
-		return -1
-	end
+        if not isStairs then
+            cost = cost + (5 * dist)
+        end
+    elseif deltaZ < -bot.loco:GetDeathDropHeight() then
+        if not isStairs then
+            return -1
+        end
+    end
 
-	return cost
+    return cost
 end
 
 function ENT:Initialize()
