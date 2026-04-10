@@ -57,3 +57,109 @@ timer.Create("zombieStuckDetector", 20, 0, function()
         end
     end
 end)
+
+local zombieStuckState = setmetatable({}, { __mode = "k" })
+
+local unstuckOffsets = {
+    Vector(0, 0, 18),
+    Vector(0, 0, 36),
+    Vector(24, 0, 0),
+    Vector(-24, 0, 0),
+    Vector(0, 24, 0),
+    Vector(0, -24, 0),
+    Vector(48, 0, 0),
+    Vector(-48, 0, 0),
+    Vector(0, 48, 0),
+    Vector(0, -48, 0)
+}
+
+local function FindNearbyFreeSpot(bot)
+    local origin = bot:GetPos()
+    local mins, maxs = bot:OBBMins(), bot:OBBMaxs()
+
+    for _, offset in ipairs(unstuckOffsets) do
+        local candidate = origin + offset
+
+        if util.IsInWorld(candidate) then
+            local tr = util.TraceHull({
+                start = candidate,
+                endpos = candidate,
+                mins = mins,
+                maxs = maxs,
+                mask = MASK_PLAYERSOLID,
+                filter = bot
+            })
+
+            if not tr.Hit then
+                return candidate
+            end
+        end
+    end
+end
+
+timer.Create("zombieStuckDetector", 1, 0, function()
+    if team.NumPlayers(TEAM_ZOMBIE) <= 0 then return end
+
+    for _, bot in ipairs(player.GetBots()) do
+        if not IsValid(bot) or not bot:Alive() then continue end
+        if bot:Team() ~= TEAM_ZOMBIE then continue end
+        if bot:IsFrozen() then continue end
+        if bot:GetMoveType() == MOVETYPE_LADDER then continue end
+
+        local controller = bot.GetController and bot:GetController() or bot.ControllerBot
+        if not IsValid(controller) then continue end
+
+        local pos = bot:GetPos()
+        local state = zombieStuckState[bot]
+
+        if not state then
+            zombieStuckState[bot] = {
+                lastPos = pos,
+                stuckSince = CurTime()
+            }
+            continue
+        end
+
+        local movedSqr = pos:DistToSqr(state.lastPos)
+        state.lastPos = pos
+
+        local goalPos = nil
+
+        if IsValid(controller.Target) then
+            goalPos = controller.Target:GetPos()
+        elseif isvector(controller.PosGen) then
+            goalPos = controller.PosGen
+        end
+
+        local hasGoal = isvector(goalPos) and pos:DistToSqr(goalPos) > 10000
+
+        if not hasGoal then
+            state.stuckSince = CurTime()
+            continue
+        end
+
+        if movedSqr >= 64 then
+            state.stuckSince = CurTime()
+            continue
+        end
+
+        if CurTime() - state.stuckSince < 3 then
+            continue
+        end
+
+        local freeSpot = FindNearbyFreeSpot(bot)
+
+        if freeSpot then
+            bot:SetPos(freeSpot)
+
+            controller.Target = nil
+            controller.PosGen = nil
+            controller.LastSegmented = 0
+        else
+            bot:Kill()
+        end
+
+        state.lastPos = bot:GetPos()
+        state.stuckSince = CurTime()
+    end
+end)
