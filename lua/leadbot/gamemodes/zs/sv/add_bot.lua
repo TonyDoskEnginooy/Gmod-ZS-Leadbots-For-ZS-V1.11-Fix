@@ -97,12 +97,97 @@ local defaultBotNames = {
     refugee04 = "Yance",
 }
 
+local ZOMBIE_TEMPERAMENTS = {
+    {
+        name = "rusher",
+        weight = 30,
+        loadPenalty = 55,
+        holdBonus = 240,
+        imperfection = 25,
+        preferWeak = 1.2,
+        obstacleBias = 0,
+        flankBias = 0.10,
+        moveSpeedMul = 1.08
+    },
+    {
+        name = "flanker",
+        weight = 20,
+        loadPenalty = 190,
+        holdBonus = 150,
+        imperfection = 45,
+        preferWeak = 0.9,
+        obstacleBias = -30,
+        flankBias = 0.95,
+        moveSpeedMul = 1.00
+    },
+    {
+        name = "breaker",
+        weight = 15,
+        loadPenalty = 110,
+        holdBonus = 170,
+        imperfection = 35,
+        preferWeak = 0.8,
+        obstacleBias = 170,
+        flankBias = 0.25,
+        moveSpeedMul = 0.98
+    },
+    {
+        name = "drifter",
+        weight = 20,
+        loadPenalty = 240,
+        holdBonus = 90,
+        imperfection = 95,
+        preferWeak = 0.7,
+        obstacleBias = 40,
+        flankBias = 0.55,
+        moveSpeedMul = 0.92
+    },
+    {
+        name = "berserker",
+        weight = 15,
+        loadPenalty = 20,
+        holdBonus = 300,
+        imperfection = 20,
+        preferWeak = 1.4,
+        obstacleBias = -60,
+        flankBias = 0.05,
+        moveSpeedMul = 1.12
+    }
+}
+
 -- Cache cvars
 local leadbot_names = GetConVar("leadbot_names")
 local leadbot_models = GetConVar("leadbot_models")
 local leadbot_name_prefix = GetConVar("leadbot_name_prefix")
 local leadbot_strategy = GetConVar("leadbot_strategy")
 local sv_cheats = GetConVar("sv_cheats")
+
+local function PickZombieTemperament()
+    local totalWeight = 0
+
+    for _, temperament in ipairs(ZOMBIE_TEMPERAMENTS) do
+        totalWeight = totalWeight + temperament.weight
+    end
+
+    local roll = math.Rand(0, totalWeight)
+
+    for _, temperament in ipairs(ZOMBIE_TEMPERAMENTS) do
+        roll = roll - temperament.weight
+
+        if roll <= 0 then
+            return table.Copy(temperament)
+        end
+    end
+
+    return table.Copy(ZOMBIE_TEMPERAMENTS[1])
+end
+
+local function EnsureZombieTemperament(bot)
+    if bot.LeadBot_ZombieTemperament then return end
+
+    bot.LeadBot_ZombieTemperament = PickZombieTemperament()
+    bot.LeadBot_PersonalitySeed = math.Rand(1, 100000)
+end
 
 local function SplitCSV(str)
     local values = {}
@@ -337,6 +422,8 @@ function LeadBot.AddBot()
 
     bot.BotStrategy = strategy
     bot.OriginalName = original_name
+
+    EnsureZombieTemperament(bot)
 
     local controller = ents.Create("leadbot_navigator")
     if IsValid(controller) then

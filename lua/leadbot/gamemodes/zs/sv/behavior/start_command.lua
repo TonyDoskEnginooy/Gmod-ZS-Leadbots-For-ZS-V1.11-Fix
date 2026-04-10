@@ -32,6 +32,20 @@ local ZOMBIE_CLASS_RULES = {
     }
 }
 
+local TARGET_LOAD = setmetatable({}, { __mode = "k" })
+local NEXT_TARGET_LOAD_REFRESH = 0
+
+local FALLBACK_ZOMBIE_TEMPERAMENT = {
+    name = "rusher",
+    loadPenalty = 60,
+    holdBonus = 220,
+    imperfection = 30,
+    preferWeak = 1.0,
+    obstacleBias = 0,
+    flankBias = 0.15,
+    moveSpeedMul = 1.0
+}
+
 local function HasEntries(list)
     return istable(list) and #list > 0
 end
@@ -169,51 +183,9 @@ local function KillLonelyHordeBot(bot)
     end
 end
 
-local function TraceIgnoringProps(startPos, endPos, controller, bot)
-    return util.TraceLine({
-        start = startPos,
-        endpos = endPos,
-        filter = function(ent)
-            if ent == controller or ent == bot then
-                return true
-            end
-
-            return IsValid(ent) and ent:GetClass() == "prop_physics"
-        end
-    })
-end
-
 local function ForgetInvalidTarget(controller)
     if not IsValid(controller.Target) or controller.ForgetTarget < CurTime() or controller.Target:Health() < 1 then
         controller.Target = nil
-    end
-end
-
-local function TargetEnemyDirectlyAhead(bot, controller)
-    if IsValid(controller.Target) then return end
-
-    for _, ent in ipairs(ents.FindInSphere(bot:GetShootPos() + bot:GetAimVector() * 50, 20)) do
-        if IsValid(ent) and ent:IsPlayer() and ent ~= bot and ent:Team() ~= bot:Team() and ent:Alive() then
-            controller.Target = ent
-            controller.ForgetTarget = CurTime() + math.random(2, 6)
-            return
-        end
-    end
-end
-
-local function RememberVisibleTarget(bot, controller)
-    if not IsValid(controller.Target) then return end
-
-    local feetOffset = Vector(0, 0, -29)
-    local trace = TraceIgnoringProps(
-        bot:GetPos() + feetOffset,
-        bot:GetPos() + feetOffset + bot:GetForward() * 100000,
-        controller,
-        bot
-    )
-
-    if controller.ForgetTarget < CurTime() and trace.Entity == controller.Target then
-        controller.ForgetTarget = CurTime() + 4
     end
 end
 
@@ -247,44 +219,188 @@ local function IsBetterTarget(bot, currentTarget, newTarget)
     return newTarget:Health() < currentTarget:Health()
 end
 
-local function TrySetTarget(bot, controller, newTarget)
-    if not IsEnemyCandidate(bot, newTarget) or ShouldAvoidChemZombie(bot, newTarget) then
-        return false
+local function GetZombieTemperament(bot)
+    return bot.LeadBot_ZombieTemperament or FALLBACK_ZOMBIE_TEMPERAMENT
+end
+
+local function ClearTargetLoad()
+    for ent in pairs(TARGET_LOAD) do
+        TARGET_LOAD[ent] = nil
+    end
+end
+
+local function RefreshTargetLoad()
+    if NEXT_TARGET_LOAD_REFRESH > CurTime() then return end
+
+    ClearTargetLoad()
+
+    for _, ply in ipairs(player.GetBots()) do
+        if IsValid(ply) and ply.IsLBot and ply:IsLBot() then
+            local controller = ply:GetController()
+
+            if IsValid(controller) and IsValid(controller.Target) then
+                TARGET_LOAD[controller.Target] = (TARGET_LOAD[controller.Target] or 0) + 1
+            end
+        end
     end
 
-    if IsBetterTarget(bot, controller.Target, newTarget) then
-        controller.Target = newTarget
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-        return true
+    NEXT_TARGET_LOAD_REFRESH = CurTime() + 0.2
+end
+
+local function StableNoise(bot, ent, magnitude)
+    local bucket = math.floor(CurTime() * 1.5)
+    local seed = (bot.LeadBot_PersonalitySeed or 1) * 0.013 + ent:EntIndex() * 0.173 + bucket * 0.071
+    return math.sin(seed * 23.417) * magnitude
+end
+
+local function GetDistanceScore(distanceSqr)
+    if distanceSqr <= 2500 then
+        return 260
+    elseif distanceSqr <= 22500 then
+        return 180
+    elseif distanceSqr <= 90000 then
+        return 100
+    elseif distanceSqr <= 250000 then
+        return 20
+    end
+
+    return -80
+end
+
+local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
+    if not IsEnemyCandidate(bot, target) or ShouldAvoidChemZombie(bot, target) then
+        return nil
+    end
+
+    local temperament = GetZombieTemperament(bot)
+    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
+    local score = 0
+
+    if target:IsPlayer() then
+        score = score + 1350
+        score = score + math.Clamp((100 - target:Health()) * temperament.preferWeak * 1.5, 0, 180)
+    elseif target:IsNPC() then
+        score = score + 900
+    end
+
+    score = score + GetDistanceScore(distanceSqr)
+
+    if sourceTag == "facing_player" then
+        score = score + 220
+    end
+
+    if target == controller.Target then
+        score = score + temperament.holdBonus
+    end
+
+    local load = TARGET_LOAD[target] or 0
+
+    if target == controller.Target and load > 0 then
+        load = load - 1
+    end
+
+    score = score - (load * temperament.loadPenalty)
+    score = score + StableNoise(bot, target, temperament.imperfection)
+
+    return score
+end
+
+local function IsIgnoredPropModel(model)
+    return model == "models/props_c17/playground_carousel01.mdl"
+        or model == "models/props_wasteland/prison_lamp001a.mdl"
+end
+
+local function IsBoardModel(model)
+    return model == "models/props_debris/wood_board04a.mdl"
+        or model == "models/props_debris/wood_board05a.mdl"
+        or model == "models/props_debris/wood_board06a.mdl"
+end
+
+local function IsSimpleObstacleTarget(bot, ent)
+    if not IsValid(ent) then return false end
+
+    local class = ent:GetClass()
+
+    if class == "func_breakable" or class == "func_physbox" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    if class == "prop_physics" then
+        if not ent.GetMaxHealth or ent:GetMaxHealth() <= 1 then
+            return false
+        end
+
+        local model = ent:GetModel()
+
+        return not IsIgnoredPropModel(model) and not IsBoardModel(model)
+    end
+
+    if class == "prop_dynamic" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
     end
 
     return false
 end
 
-local function EvaluateCandidates(bot, controller, candidates)
-    if not HasEntries(candidates) then return end
+local function ScoreZombieObstacleTarget(bot, controller, target)
+    if not IsSimpleObstacleTarget(bot, target) then
+        return nil
+    end
 
-    local randomIndex = math.random(1, #candidates)
-    local candidate = candidates[randomIndex]
+    local temperament = GetZombieTemperament(bot)
+    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
+    local score = 140 + temperament.obstacleBias + GetDistanceScore(distanceSqr)
 
-    TrySetTarget(bot, controller, candidate)
+    if target == controller.Target then
+        score = score + math.floor(temperament.holdBonus * 0.4)
+    end
+
+    if IsValid(controller.Target) and (controller.Target:IsPlayer() or controller.Target:IsNPC()) then
+        score = score - 450
+    end
+
+    score = score + StableNoise(bot, target, math.floor(temperament.imperfection * 0.4))
+
+    return score
 end
 
-local function TargetSpecialObstacle(bot, controller, obstacles)
-    if bot:Team() ~= TEAM_ZOMBIE or not HasEntries(obstacles) then return end
+local function ConsiderBestTarget(bot, controller, state, list, sourceTag, scorer)
+    if not HasEntries(list) then return end
 
-    for _, ent in ipairs(obstacles) do
-        if IsValid(ent)
-            and not ent:IsWorld()
-            and not ent:IsPlayer()
-            and not ent:IsWeapon()
-            and not (ent.IsLBot and ent:IsLBot())
-            and ent:GetClass() ~= "predicted_viewmodel"
-        then
-            controller.Target = ent
-            controller.ForgetTarget = CurTime() + math.random(2, 6)
-            return
+    for _, ent in ipairs(list) do
+        if IsValid(ent) then
+            local score = scorer(bot, controller, ent, sourceTag)
+
+            if score and score > state.bestScore then
+                state.bestScore = score
+                state.bestTarget = ent
+            end
         end
+    end
+end
+
+local function AcquireTemperamentTarget(bot, controller, foundEnts)
+    RefreshTargetLoad()
+
+    local state = {
+        bestScore = -math.huge,
+        bestTarget = nil
+    }
+
+    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreZombieEnemyTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreZombieEnemyTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["npc"], "near_npc", ScoreZombieEnemyTarget)
+
+    if not IsValid(state.bestTarget) then
+        ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable"], "func_breakable", ScoreZombieObstacleTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.near["func_physbox"], "func_physbox", ScoreZombieObstacleTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_physics"], "prop_physics", ScoreZombieObstacleTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_dynamic"], "prop_dynamic", ScoreZombieObstacleTarget)
+    end
+
+    if IsValid(state.bestTarget) then
+        controller.Target = state.bestTarget
+        controller.ForgetTarget = CurTime() + 0.9
     end
 end
 
@@ -313,70 +429,6 @@ local function ToggleMovingBrush(bot, movingBrushes)
     end
 end
 
-local function TargetBreakable(bot, controller, breakables)
-    if not HasEntries(breakables) then return end
-
-    local breakable = breakables[math.random(1, #breakables)]
-    if not IsValid(breakable) or breakable:GetMaxHealth() <= 1 then return end
-
-    local canSurvivorBreak = ZSB.Map:GetValue("survivorBreak", false)
-    local canZombieBreak = ZSB.Map:GetValue("zombieBreakCheck", false)
-
-    if (bot:Team() == TEAM_SURVIVORS and canSurvivorBreak) or (bot:Team() == TEAM_ZOMBIE and canZombieBreak) then
-        controller.Target = breakable
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-    end
-end
-
-local function TargetPhysBox(bot, controller, physBoxes)
-    if not HasEntries(physBoxes) then return end
-
-    local physBox = physBoxes[math.random(1, #physBoxes)]
-    if not IsValid(physBox) or physBox:GetMaxHealth() <= 1 then return end
-
-    local survivorCanBreakBoxes = ZSB.Map:GetValue("survivorBoxBreak", false)
-    if bot:Team() == TEAM_ZOMBIE or survivorCanBreakBoxes then
-        controller.Target = physBox
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-    end
-end
-
-local function IsBoardModel(model)
-    return model == "models/props_debris/wood_board04a.mdl"
-        or model == "models/props_debris/wood_board05a.mdl"
-        or model == "models/props_debris/wood_board06a.mdl"
-end
-
-local function IsIgnoredPropModel(model)
-    return model == "models/props_c17/playground_carousel01.mdl"
-        or model == "models/props_wasteland/prison_lamp001a.mdl"
-end
-
-local function TargetPhysicsProp(bot, controller, props)
-    if not HasEntries(props) then return end
-
-    local prop = props[math.random(1, #props)]
-    if not IsValid(prop) or prop:GetMaxHealth() <= 1 then return end
-
-    local zombieCanTargetProps = ZSB.Map:GetValue("zombiePropCheck", false)
-    local model = prop:GetModel()
-    if IsIgnoredPropModel(model) then return end
-
-    local survivorCanTargetProp = bot:Team() == TEAM_SURVIVORS and prop:Health() <= 50 and not IsBoardModel(model)
-    local zombieCanTargetProp = bot:Team() == TEAM_ZOMBIE and zombieCanTargetProps
-
-    if (zombieCanTargetProp or survivorCanTargetProp) and zombieCanTargetProps then
-        controller.Target = prop
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-        return
-    end
-
-    if bot:GetMoveType() == MOVETYPE_LADDER and (bot:Team() == TEAM_ZOMBIE or survivorCanTargetProp) and zombieCanTargetProps then
-        controller.Target = prop
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-    end
-end
-
 local function BreakBreakableSurface(surfaces)
     if not HasEntries(surfaces) then return end
 
@@ -385,17 +437,6 @@ local function BreakBreakableSurface(surfaces)
         surface:Fire("Break")
     end
 end
-
-local function TargetDynamicProp(controller, dynamicProps)
-    if not HasEntries(dynamicProps) then return end
-
-    local dynamicProp = dynamicProps[math.random(1, #dynamicProps)]
-    if IsValid(dynamicProp) and dynamicProp:GetMaxHealth() > 1 then
-        controller.Target = dynamicProp
-        controller.ForgetTarget = CurTime() + math.random(2, 6)
-    end
-end
-
 local function SelectSurvivorWeapon(bot, distanceSqr)
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
@@ -635,21 +676,9 @@ function LeadBot.StartCommand(bot, cmd)
     ApplyZombieCheats(bot)
 
     ForgetInvalidTarget(controller)
-    TargetEnemyDirectlyAhead(bot, controller)
-    RememberVisibleTarget(bot, controller)
 
     local foundEnts = ZSB.Util:FindEnts(bot)
-    local facingPlayers = foundEnts.facing["player"]
-    local nearPlayers = foundEnts.near["player"]
-
-    EvaluateCandidates(bot, controller, facingPlayers)
-    EvaluateCandidates(bot, controller, nearPlayers)
-
-    TargetSpecialObstacle(bot, controller, foundEnts.near["predicted_viewmodel"])
-    TargetBreakable(bot, controller, foundEnts.near["func_breakable"])
-    TargetPhysBox(bot, controller, foundEnts.near["func_physbox"])
-    TargetPhysicsProp(bot, controller, foundEnts.near["prop_physics"])
-    TargetDynamicProp(controller, foundEnts.near["prop_dynamic"])
+    AcquireTemperamentTarget(bot, controller, foundEnts)
 
     BreakRotatingDoor(bot, foundEnts.near["prop_door_rotating"])
     BreakBreakableSurface(foundEnts.near["func_breakable_surf"])
