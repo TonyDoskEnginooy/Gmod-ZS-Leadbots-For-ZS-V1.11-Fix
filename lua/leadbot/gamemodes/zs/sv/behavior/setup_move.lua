@@ -16,9 +16,9 @@ local function SetCampingEyeAngles(bot, controller)
             strategy == 2 and sigil2 and bot:GetPos():DistToSqr(sigil2:GetPos()) <= 5000 or
             strategy == 3 and sigil1 and bot:GetPos():DistToSqr(sigil1:GetPos()) <= 5000
         then
-            local openvar = math.random(-90, 90)
-            local hallvar = math.random(-45, 45)
-            local doorvar = math.random(-15, 15)
+            local openVar = math.random(-90, 90)
+            local hallVar = math.random(-45, 45)
+            local doorVar = math.random(-15, 15)
             local eyeAngles = ZSB.Map:GetValue("eyeAngles", nil, strategy, doorVar, hallVar, openVar)
 
             bot:SetEyeAngles(eyeAngles)
@@ -324,17 +324,17 @@ local function TargetNearEnemy(bot, nearPlysOrBots, controller)
 
     if IsValid(newNearTarget) and newNearTarget:IsPlayer() and newNearTarget:Team() ~= bot:Team() then
         if newNearTarget:GetZombieClass() ~= 4 or newNearTarget:GetZombieClass() == 4 and newNearTarget:GetPos():DistToSqr(bot:GetPos()) > 67500 then
-            if not IsValid(target) then
+            if not IsValid(newNearTarget) then
                 controller.Target = newNearTarget
                 controller.ForgetTarget = CurTime() + math.random(2, 6)
             else
                 if bot:Team() == TEAM_SURVIVORS then
-                    if target:GetPos():DistToSqr(bot:GetPos()) > newNearTarget:GetPos():DistToSqr(bot:GetPos()) then  
+                    if newNearTarget:GetPos():DistToSqr(bot:GetPos()) > newNearTarget:GetPos():DistToSqr(bot:GetPos()) then  
                         controller.Target = newNearTarget
                         controller.ForgetTarget = CurTime() + math.random(2, 6)
                     end
                 else
-                    if target:Health() > newNearTarget:Health() then  
+                    if newNearTarget:Health() > newNearTarget:Health() then  
                         controller.Target = newNearTarget
                         controller.ForgetTarget = CurTime() + math.random(2, 6)
                     end
@@ -461,7 +461,7 @@ local function SetMoveToTarget(bot, controller)
     end
 end
 
-local function Retreat(bot, controller, mv, distance)
+local function Retreat(bot, controller, mv, distance, strategy)
     -- back up if the target is really close
     -- TODO: find a random spot rather than trying to back up into what could just be a wall
     -- something like controller.PosGen = controller:FindSpot("random", {pos = bot:GetPos() - bot:GetForward() * 350, radius = 1000})?
@@ -871,7 +871,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
         local distance = controller.Target:GetPos():DistToSqr(bot:GetPos())
 
         SetMoveToTarget(bot, controller)
-        Retreat(bot, controller, mv, distance)
+        Retreat(bot, controller, mv, distance, strategy)
         SelectWeapon(bot, distance)
     elseif not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime() then
         SetMovementWithoutTarget(bot, controller, strategy)

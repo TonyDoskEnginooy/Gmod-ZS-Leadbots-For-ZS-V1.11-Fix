@@ -52,7 +52,7 @@ function LeadBot.Death(aggressor, victimBot)
         end
 
         if leadbot_cs:GetInt() >= 1 then 
-            if attacker:IsPlayer() and aggressor:Team() == TEAM_ZOMBIE then 
+            if aggressor:IsPlayer() and aggressor:Team() == TEAM_ZOMBIE then 
                 victimBot:EmitSound("npc/fast_zombie/fz_scream1.wav", CHAN_REPLACE)
             end
         end

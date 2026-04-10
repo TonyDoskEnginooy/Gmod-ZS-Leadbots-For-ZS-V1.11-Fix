@@ -54,6 +54,7 @@ function LeadBot.TakeDamage(aggressor, victimBot, hp, dmg)
 
     if leadbot_cs:GetInt() >= 1 then
         if victimBot:Team() == TEAM_ZOMBIE and aggressor:Team() == TEAM_SURVIVORS then 
+            local force = dmg:GetDamageForce()
             ZSB.playerCSSpeed = 1
             victimBot:SetVelocity(victimBot:GetVelocity() + (force / 4))
         end

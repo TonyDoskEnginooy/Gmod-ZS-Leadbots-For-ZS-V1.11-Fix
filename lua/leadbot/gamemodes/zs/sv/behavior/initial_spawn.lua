@@ -11,7 +11,7 @@ function LeadBot.InitialSpawn(bot)
             local fixedPos = ZSB.Map:GetValue("fixedZombieSpawn")
 
             if fixedPos then
-                ply:SetPos(fixedPos)
+                bot:SetPos(fixedPos)
             end
         end 
     end
