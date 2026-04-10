@@ -515,7 +515,12 @@ local function SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
     local activeWeapon = bot:GetActiveWeapon()
     local clip = IsValid(activeWeapon) and activeWeapon:Clip1() or 0
 
-    if clip <= 0 and HasNoReserveFirearmAmmo(bot) or ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr) then
+    local shouldUseKnife = (clip <= 0 and HasNoReserveFirearmAmmo(bot))
+        or ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+
+    controller.ConserveAmmoWithKnife = shouldUseKnife
+
+    if shouldUseKnife then
         SelectMeleeFallback(bot)
         return
     end
@@ -763,7 +768,7 @@ local function ShouldPressAttack(bot, controller)
         end
 
         if IsKnifeActive(bot) then
-            return distanceSqr <= 95 * 95 and HasClearShot(bot, controller, target)
+            return distanceSqr <= 72 * 72 and HasClearShot(bot, controller, target)
         end
 
         return HasClearShot(bot, controller, target)
