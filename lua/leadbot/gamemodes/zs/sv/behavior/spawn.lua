@@ -141,6 +141,14 @@ function LeadBot.Spawn(bot)
 
     StripHumanWeapons(bot)
 
+    local preservedZombieClass = bot.LeadBot_PreserveZombieClass
+    if preservedZombieClass then
+        -- Keep special revive classes for a single spawn only.
+        bot.LeadBot_PreserveZombieClass = nil
+        bot:SetZombieClass(preservedZombieClass)
+        return
+    end
+
     if leadbot_cs:GetBool() then
         bot:SetZombieClass(DEFAULT_CLASS_ID)
         ApplyCounterStrikeZombieHealth(bot)
