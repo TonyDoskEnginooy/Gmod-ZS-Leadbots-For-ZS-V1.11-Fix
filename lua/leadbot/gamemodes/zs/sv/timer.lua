@@ -35,7 +35,7 @@ timer.Create("zombieNearDetector", 20, 0, function()
     end
 end)
 
-local plyStuckState = setmetatable({}, { __mode = "k" })
+local stuckState = setmetatable({}, { __mode = "k" })
 
 local leadbot_mapchanges = GetConVar("leadbot_mapchanges")
 
@@ -138,131 +138,170 @@ local function ResetBotPath(controller)
     controller.NextJump = 0
 end
 
-local function addPlyStuckState(ply, pos)
-    local state = plyStuckState[ply]
+local function AddStuckState(ply, pos)
+    local state = stuckState[ply]
 
     if not state then
-        state = {
+        stuckState[ply] = {
             lastPos = pos,
-            embeddedSince = nil,
-            stalledSince = nil,
-            counter = 0
+            outsideWorldCounter = 0,
+            embeddedCounter = 0,
+            stalledCounter = 0
         }
 
-        plyStuckState[ply] = state
         return true
     end
 
     return false
 end
 
+local function ResetStuckState(ply)
+    local state = stuckState[ply]
+
+    if state then
+        state.lastPos = ply:GetPos()
+        state.outsideWorldCounter = 0
+        state.embeddedCounter = 0
+        state.stalledCounter = 0
+    end
+end
+
+local function MovePlyToFreeSpot(ply, controller)
+    local freeSpot = FindNearbyFreeSpot(ply)
+
+    if freeSpot then
+        ply:SetPos(freeSpot + Vector(0, 0, 1))
+    else
+        if ply:Team() == TEAM_ZOMBIE then
+            ply:Kill()
+        end
+    end
+
+    if controller then
+        ResetBotPath(controller)
+    end
+
+    return freeSpot != nil
+end
+
+timer.Create("botStuckDetector", 1, 0, function()
+    for _, bot in ipairs(player.GetBots()) do
+        if not IsValid(bot) or not bot:Alive() then
+            stuckState[bot] = nil
+            continue
+        end
+
+        if bot:IsFrozen() then continue end
+        if bot:GetMoveType() == MOVETYPE_LADDER then continue end
+
+        local pos = bot:GetPos()
+
+        if AddStuckState(bot, pos) then
+            continue
+        end
+
+        local state = stuckState[bot]
+
+        local outsideWorld = not bot:IsInWorld()
+
+        if outsideWorld then
+            if state.outsideWorldCounter < 4 then
+                state.outsideWorldCounter = state.outsideWorldCounter + 1
+                continue
+            end
+
+            SendPlayerToRecoverySpawn(bot)
+            ResetStuckState(bot)
+
+            if not bot:IsBot() then
+                continue
+            end
+
+            local controller = bot.GetController and bot:GetController() or bot.ControllerBot
+
+            if IsValid(controller) then
+                ResetBotPath(controller)
+            end
+
+            continue
+        elseif outsideWorldCounter then
+            state.outsideWorldCounter = 0 
+        end
+
+        local controller = bot.GetController and bot:GetController() or bot.ControllerBot
+
+        if not IsValid(controller) then
+            stuckState[bot] = nil
+            continue
+        end
+
+        local movedSqr = pos:DistToSqr(state.lastPos)
+        local speed2DSqr = bot:GetVelocity():Length2DSqr()
+        local hasGoal = IsValid(controller.Target) or isvector(controller.PosGen)
+        local embedded = IsPlayerEmbeddedAt(bot, pos)
+        local stalled = hasGoal and speed2DSqr < 36 and movedSqr < 9
+
+        state.lastPos = pos
+
+        if embedded then
+            state.embeddedCounter = state.embeddedCounter + 1
+        elseif state.embeddedCounter then
+            state.embeddedCounter = 0 
+        end
+
+        if stalled then
+            state.stalledCounter = state.stalledCounter + 1
+        elseif state.stalledCounter then
+            state.stalledCounter = 0 
+        end
+
+        if state.embeddedCounter > 4 or state.stalledCounter > 4 then
+            MovePlyToFreeSpot(bot, controller)
+            ResetStuckState(bot)
+        end
+    end
+end)
+
 timer.Create("plyStuckDetector", 1, 0, function()
-    -- Bots are also ply
-    for _, ply in ipairs(player.GetAll()) do
+    for _, ply in ipairs(player.GetHumans()) do
         if not IsValid(ply) or not ply:Alive() then
-            plyStuckState[ply] = nil
+            stuckState[ply] = nil
             continue
         end
 
         local pos = ply:GetPos()
 
-        if addPlyStuckState(ply, pos) then
+        if AddStuckState(ply, pos) then
             continue
         end
 
-        local state = plyStuckState[ply]
+        local state = stuckState[ply]
 
         local outsideWorld = not ply:IsInWorld()
         local embedded = IsPlayerEmbeddedAt(ply, pos)
 
-        if outsideWorld or embedded then
-            if state.counter < 4 then
-                state.counter = state.counter + 1
-                continue
-            end
-
-            local movedToSpawn = SendPlayerToRecoverySpawn(ply)
-            plyStuckState[ply] = nil
-
-            if not ply:IsBot() then
-                continue
-            end
-
-            local earlyController = ply.GetController and ply:GetController() or ply.ControllerBot
-            if IsValid(earlyController) then
-                ResetBotPath(earlyController)
-            end
-
-            if movedToSpawn then
-                pos = ply:GetPos()
-            end
+        if outsideWorld then
+            state.outsideWorldCounter = state.outsideWorldCounter + 1
+        elseif state.outsideWorldCounter then
+            state.outsideWorldCounter = 0 
         end
-
-        if not ply:IsBot() then
-            continue
-        end
-
-        if ply:IsFrozen() then continue end
-        if ply:GetMoveType() == MOVETYPE_LADDER then continue end
-
-        local controller = ply.GetController and ply:GetController() or ply.ControllerBot
-        if not IsValid(controller) then
-            plyStuckState[ply] = nil
-            continue
-        end
-
-        local now = CurTime()
-        local movedSqr = pos:DistToSqr(state.lastPos)
-        local speed2DSqr = ply:GetVelocity():Length2DSqr()
-        local hasGoal = IsValid(controller.Target) or isvector(controller.PosGen)
-        embedded = IsPlayerEmbeddedAt(ply, pos)
-        local stalled = hasGoal and speed2DSqr < 36 and movedSqr < 9
 
         if embedded then
-            state.embeddedSince = state.embeddedSince or now
-        else
-            state.embeddedSince = nil
+            state.embeddedCounter = state.embeddedCounter + 1
+        elseif state.embeddedCounter then
+            state.embeddedCounter = 0 
         end
 
-        if stalled then
-            state.stalledSince = state.stalledSince or now
-        else
-            state.stalledSince = nil
+        if state.outsideWorldCounter > 4 then
+            SendPlayerToRecoverySpawn(ply)
+            ResetStuckState(ply)
         end
 
-        state.lastPos = pos
-
-        local shouldUnstuck =
-            (state.embeddedSince and now - state.embeddedSince >= 0.25)
-            or (state.stalledSince and now - state.stalledSince >= 1.5)
-
-        if not shouldUnstuck then
-            if state.counter then
-                state.counter = 0
+        if state.embeddedCounter > 5 then
+            if not MovePlyToFreeSpot(ply) then
+                SendPlayerToRecoverySpawn(ply)
             end
-
-            continue
-        elseif state.counter < 4 then
-            state.counter = state.counter + 1
-            continue
+            ResetStuckState(ply)
         end
-
-        local freeSpot = FindNearbyFreeSpot(ply)
-
-        if freeSpot then
-            ply:SetPos(freeSpot + Vector(0, 0, 1))
-            ResetBotPath(controller)
-        else
-            ResetBotPath(controller)
-
-            if ply:Team() == TEAM_ZOMBIE then
-                ply:Kill()
-            end
-        end
-
-        state.lastPos = ply:GetPos()
-        state.embeddedSince = nil
-        state.stalledSince = nil
-        state.counter = 0
     end
 end)
