@@ -83,10 +83,6 @@ local function includeFilesInDir(dir)
     for _, fileName in ipairs(files) do
         include(dir .. "/" .. fileName)
     end
-
-    for _, dirName in ipairs(dirs) do
-        includeFilesInDir(dir .. "/" .. dirName)
-    end
 end
 
 local function resetIntermissionState()
