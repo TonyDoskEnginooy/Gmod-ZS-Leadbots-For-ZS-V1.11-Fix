@@ -16,6 +16,8 @@ local leadbot_quota = GetConVar("leadbot_quota")
 SC.TARGET_LOAD = SC.TARGET_LOAD or setmetatable({}, { __mode = "k" })
 
 SC.NEXT_TARGET_LOAD_REFRESH = SC.NEXT_TARGET_LOAD_REFRESH or 0
+SC.OBSTACLE_TARGET_TIMEOUT = SC.OBSTACLE_TARGET_TIMEOUT or 4
+SC.OBSTACLE_TARGET_RETRY_DELAY = SC.OBSTACLE_TARGET_RETRY_DELAY or 6
 
 SC.FALLBACK_ZOMBIE_TEMPERAMENT = SC.FALLBACK_ZOMBIE_TEMPERAMENT or {
     name = "rusher",
@@ -47,6 +49,10 @@ function SC.EnsureControllerState(controller)
     controller.strafeAngle = controller.strafeAngle or 1
     controller.NextPropThrow = controller.NextPropThrow or 0
     controller.NextPoisonZombieThrow = controller.NextPoisonZombieThrow or 0
+    controller.ObstacleTargetSince = controller.ObstacleTargetSince or 0
+    controller.ObstacleTargetRetryUntil = controller.ObstacleTargetRetryUntil or 0
+    controller.ActiveObstacleTarget = controller.ActiveObstacleTarget or nil
+    controller.LastObstacleTarget = controller.LastObstacleTarget or nil
 end
 
 function SC.SetRoamState(bot)
@@ -77,12 +83,43 @@ function SC.KillLonelyHordeBot(bot)
     end
 end
 
+function SC.ClearObstacleTargetState(controller)
+    controller.ActiveObstacleTarget = nil
+    controller.ObstacleTargetSince = 0
+end
+
+function SC.MarkObstacleTargetTimedOut(controller, target)
+    controller.LastObstacleTarget = target
+    controller.ObstacleTargetRetryUntil = CurTime() + SC.OBSTACLE_TARGET_RETRY_DELAY
+    SC.ClearObstacleTargetState(controller)
+    controller.Target = nil
+end
+
 function SC.ForgetInvalidTarget(bot, controller)
-    if not IsValid(controller.Target)
+    local target = controller.Target
+
+    if not IsValid(target)
     or controller.ForgetTarget < CurTime()
-    or (controller.Target:Health() < 1 and not (SC.IsFragileMapBreakable and SC.IsFragileMapBreakable(controller.Target)))
-    or not ZSB.Util:CanPerceiveTarget(bot, controller.Target) then
+    or target:Health() < 1
+    or not ZSB.Util:CanPerceiveTarget(bot, target) then
         controller.Target = nil
+        SC.ClearObstacleTargetState(controller)
+        return
+    end
+
+    if not SC.IsSimpleObstacleTarget(bot, target) then
+        SC.ClearObstacleTargetState(controller)
+        return
+    end
+
+    if controller.ActiveObstacleTarget ~= target then
+        controller.ActiveObstacleTarget = target
+        controller.ObstacleTargetSince = CurTime()
+        return
+    end
+
+    if controller.ObstacleTargetSince + SC.OBSTACLE_TARGET_TIMEOUT < CurTime() then
+        SC.MarkObstacleTargetTimedOut(controller, target)
     end
 end
 

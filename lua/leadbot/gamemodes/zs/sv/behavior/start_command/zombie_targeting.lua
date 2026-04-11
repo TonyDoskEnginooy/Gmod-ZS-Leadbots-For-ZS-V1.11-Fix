@@ -112,6 +112,10 @@ local function ScoreZombieObstacleTarget(bot, controller, target)
         return nil
     end
 
+    if target == controller.LastObstacleTarget and controller.ObstacleTargetRetryUntil > CurTime() then
+        return nil
+    end
+
     local temperament = SC.GetZombieTemperament(bot)
     local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
     local score = 140 + temperament.obstacleBias + SC.GetDistanceScore(distanceSqr)
