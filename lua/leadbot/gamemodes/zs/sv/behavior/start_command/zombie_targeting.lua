@@ -13,7 +13,9 @@ local function IsEnemyCandidate(bot, ent)
     if not IsValid(ent) or ent == bot then return false end
 
     if ent:IsPlayer() then
-        return ent:Alive() and ent:Team() ~= bot:Team()
+        return ent:Alive()
+            and ent:Team() ~= bot:Team()
+            and ZSB.Util:CanPerceiveTarget(bot, ent)
     end
 
     return ent:IsNPC() and bot:Team() == TEAM_SURVIVORS

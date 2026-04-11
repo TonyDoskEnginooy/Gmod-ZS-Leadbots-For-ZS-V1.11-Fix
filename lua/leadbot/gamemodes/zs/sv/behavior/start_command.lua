@@ -22,7 +22,7 @@ function LeadBot.StartCommand(bot, cmd)
     SC.SetRoamState(bot)
     SC.ApplyZombieCheats(bot)
 
-    SC.ForgetInvalidTarget(controller)
+    SC.ForgetInvalidTarget(bot, controller)
 
     local foundEnts = ZSB.Util:FindEnts(bot)
     SC.AcquireTemperamentTarget(bot, controller, foundEnts)

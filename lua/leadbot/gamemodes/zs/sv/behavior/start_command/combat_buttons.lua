@@ -18,6 +18,7 @@ local function IsCombatTarget(bot, target)
         return target:Alive()
             and target:Team() ~= bot:Team()
             and not target:HasGodMode()
+            and ZSB.Util:CanPerceiveTarget(bot, target)
     end
 
     return target:IsNPC() and bot:Team() == TEAM_SURVIVORS

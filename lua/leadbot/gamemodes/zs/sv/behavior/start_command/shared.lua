@@ -77,8 +77,11 @@ function SC.KillLonelyHordeBot(bot)
     end
 end
 
-function SC.ForgetInvalidTarget(controller)
-    if not IsValid(controller.Target) or controller.ForgetTarget < CurTime() or controller.Target:Health() < 1 then
+function SC.ForgetInvalidTarget(bot, controller)
+    if not IsValid(controller.Target)
+    or controller.ForgetTarget < CurTime()
+    or controller.Target:Health() < 1
+    or not ZSB.Util:CanPerceiveTarget(bot, controller.Target) then
         controller.Target = nil
     end
 end

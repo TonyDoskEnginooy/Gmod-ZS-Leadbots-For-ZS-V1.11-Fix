@@ -5,6 +5,63 @@ end
 
 -- ----------------------------------------------
 
+local WRAITH_INVISIBLE_ALPHA_THRESHOLD = math.Round(255 * 0.25)
+
+local function GetZombieClassName(bot)
+    if not IsValid(bot) or not bot.GetZombieClass then
+        return nil
+    end
+
+    if bot.GetZombieClassTable then
+        local zombieClass = bot:GetZombieClassTable()
+
+        if zombieClass and zombieClass.Name then
+            return zombieClass.Name
+        end
+    end
+
+    if ZombieClasses then
+        local zombieClass = ZombieClasses[bot:GetZombieClass()]
+
+        if zombieClass and zombieClass.Name then
+            return zombieClass.Name
+        end
+    end
+
+    return nil
+end
+
+function ZSB.Util:GetZombieClassName(bot)
+    return GetZombieClassName(bot)
+end
+
+function ZSB.Util:IsWraithInvisibleToSurvivor(bot, target)
+    if not IsValid(bot) or not IsValid(target) then
+        return false
+    end
+
+    if bot:Team() ~= TEAM_SURVIVORS or not target:IsPlayer() or target:Team() ~= TEAM_ZOMBIE then
+        return false
+    end
+
+    if GetZombieClassName(target) ~= "Wraith" then
+        return false
+    end
+
+    local color = target:GetColor()
+    local alpha = color and color.a or 255
+
+    return alpha <= WRAITH_INVISIBLE_ALPHA_THRESHOLD
+end
+
+function ZSB.Util:CanPerceiveTarget(bot, target)
+    if not IsValid(bot) or not IsValid(target) then
+        return false
+    end
+
+    return not self:IsWraithInvisibleToSurvivor(bot, target)
+end
+
 function ZSB.Util:IsFacingEnt(ent1, ent2)
     if not IsValid(ent1) or not IsValid(ent2) then
         return false
@@ -178,6 +235,10 @@ function ZSB.Util:FindEnts(bot)
             local className = ent:GetClass()
 
             if wantedCmdClasses[className] or isNPC then
+                if not isNPC and ent:IsPlayer() and not self:CanPerceiveTarget(bot, ent) then
+                    continue
+                end
+
                 local entPos = GetEntityScanPoint(ent, botEyePos)
 
                 if isvector(entPos) and bot:VisibleVec(entPos) then

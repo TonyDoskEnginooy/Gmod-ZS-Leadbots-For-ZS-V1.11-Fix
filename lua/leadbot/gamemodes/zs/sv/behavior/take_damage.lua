@@ -23,7 +23,8 @@ local function OnSurvivorBotHurt(aggressor, victimBot)
     local controller = victimBot:GetController()
     if not controller then return end
 
-    if aggressor:IsNPC() or AreDifferentTeams(victimBot, aggressor) then
+    if (aggressor:IsNPC() or AreDifferentTeams(victimBot, aggressor))
+    and ZSB.Util:CanPerceiveTarget(victimBot, aggressor) then
         controller.Target = aggressor
         controller.ForgetTarget = CurTime() + 4
     end
