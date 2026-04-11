@@ -155,6 +155,14 @@ local ZOMBIE_TEMPERAMENTS = {
     }
 }
 
+local DISALLOWED_SURVIVOR_MODELS = {
+    zombie = true,
+    zombiefast = true,
+    fastzombie = true,
+    zombie_fast = true,
+    zombine = true
+}
+
 -- Cache cvars
 local leadbot_names = GetConVar("leadbot_names")
 local leadbot_models = GetConVar("leadbot_models")
@@ -202,34 +210,25 @@ local function SplitCSV(str)
     return values
 end
 
-local DISALLOWED_SURVIVOR_MODELS = {
-    zombie = true,
-    zombiefast = true,
-    fastzombie = true,
-    zombie_fast = true,
-    zombine = true
-}
-
 local function NormalizeModelName(modelName)
     if not modelName or modelName == "" then return nil end
     return player_manager.TranslateToPlayerModelName(modelName) or modelName
 end
 
-local function GetModelSignature(modelName)
-    modelName = NormalizeModelName(modelName)
-    if not modelName then return nil end
+local function GetModelSignature(normalizedModelName)
+    if not normalizedModelName then return nil end
 
-    local pathParts = string.Split(string.lower(modelName), "/")
-    modelName = pathParts[#pathParts] or modelName
+    local pathParts = string.Split(string.lower(normalizedModelName), "/")
+    normalizedModelName = pathParts[#pathParts] or normalizedModelName
 
-    modelName = string.StripExtension(modelName)
-    modelName = string.Replace(modelName, "-", "_")
+    normalizedModelName = string.StripExtension(normalizedModelName)
+    normalizedModelName = string.Replace(normalizedModelName, "-", "_")
 
-    return modelName
+    return normalizedModelName
 end
 
-local function IsRestrictedSurvivorModel(modelName)
-    local signature = GetModelSignature(modelName)
+local function IsRestrictedSurvivorModel(normalizedModelName)
+    local signature = GetModelSignature(normalizedModelName)
     if not signature then return false end
 
     return DISALLOWED_SURVIVOR_MODELS[signature] or false
