@@ -214,14 +214,6 @@ function ZSB.InitPostEntity()
     end
 
     ZSB.Map.Init()
-
-    if timer.Exists("zombieNearDetector") then
-        timer.Start("zombieNearDetector")
-    end
-
-    if timer.Exists("zombieStuckDetector") then
-        timer.Start("zombieStuckDetector")
-    end
 end
 
 hook.Add("PlayerInitialSpawn", REAL_PLAYER_INITIAL_SPAWN_HOOK, function(ply)
