@@ -23,6 +23,39 @@ local function TraceIgnoringProps(startPos, endPos, controller, bot)
     })
 end
 
+local function IsActiveSurvivorMelee(bot)
+    if bot:Team() ~= TEAM_SURVIVORS then
+        return false
+    end
+
+    local weapon = bot:GetActiveWeapon()
+    if not IsValid(weapon) then
+        return false
+    end
+
+    local className = string.lower(weapon:GetClass() or "")
+
+    return className == "weapon_zs_swissarmyknife"
+        or className:find("knife", 1, true)
+        or className:find("axe", 1, true)
+        or className:find("crowbar", 1, true)
+        or className:find("fists", 1, true)
+        or className:find("machete", 1, true)
+        or className:find("melee", 1, true)
+end
+
+local function ApplyRetreatStrafe(controller, mv, trace)
+    if not IsValid(trace.Entity) then
+        return
+    end
+
+    if controller.strafeAngle == 1 then
+        mv:SetSideSpeed(1500)
+    elseif controller.strafeAngle == 2 then
+        mv:SetSideSpeed(-1500)
+    end
+end
+
 function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
     local trace = TraceIgnoringProps(bot:EyePos(), bot:EyePos() + bot:GetAimVector() * 100000, controller, bot)
 
@@ -45,14 +78,30 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
         return
     end
 
-    if bot:Team() == TEAM_SURVIVORS and controller.ConserveAmmoWithKnife and IsValid(controller.Target) then
-        if distanceSqr > 72 * 72 then
-            mv:SetForwardSpeed(1200)
-        else
-            mv:SetForwardSpeed(0)
-        end
+    if bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) then
+        local meleeActive = IsActiveSurvivorMelee(bot)
 
-        return
+        if controller.ConserveAmmoWithKnife or meleeActive then
+            if (controller.MeleeRetreatUntil or 0) > CurTime() then
+                if distanceSqr <= 150 * 150 then
+                    mv:SetForwardSpeed(-1200)
+                    ApplyRetreatStrafe(controller, mv, trace)
+                else
+                    controller.MeleeRetreatUntil = 0
+                    mv:SetForwardSpeed(0)
+                end
+
+                return
+            end
+
+            if distanceSqr > 72 * 72 then
+                mv:SetForwardSpeed(1200)
+            else
+                mv:SetForwardSpeed(0)
+            end
+
+            return
+        end
     end
 
     if strategy == 0 or bot.freeRoam then

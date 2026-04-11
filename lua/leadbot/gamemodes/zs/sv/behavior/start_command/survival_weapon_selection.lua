@@ -605,13 +605,19 @@ local function SelectMeleeFallback(bot)
 end
 
 function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
-    if bot:Team() ~= TEAM_SURVIVORS then return end
+    if bot:Team() ~= TEAM_SURVIVORS then
+        controller.ConserveAmmoWithKnife = false
+        return
+    end
 
     local activeWeapon = bot:GetActiveWeapon()
     local clip = IsValid(activeWeapon) and activeWeapon:Clip1() or 0
+    local conserveAmmoWithKnife = ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+
+    controller.ConserveAmmoWithKnife = conserveAmmoWithKnife
 
     if (clip <= 0 and HasNoReserveFirearmAmmo(bot))
-        or ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+        or conserveAmmoWithKnife
     then
         SelectMeleeFallback(bot)
         return

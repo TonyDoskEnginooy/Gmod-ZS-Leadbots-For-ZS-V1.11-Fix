@@ -68,9 +68,29 @@ local function HasClearShot(bot, controller, target)
     return false
 end
 
-local function IsKnifeActive(bot)
+local function IsActiveSurvivorMelee(bot)
+    if bot:Team() ~= TEAM_SURVIVORS then
+        return false
+    end
+
     local weapon = bot:GetActiveWeapon()
-    return IsValid(weapon) and weapon:GetClass() == "weapon_zs_swissarmyknife"
+    if not IsValid(weapon) then
+        return false
+    end
+
+    local className = string.lower(weapon:GetClass() or "")
+
+    return className == "weapon_zs_swissarmyknife"
+        or className:find("knife", 1, true)
+        or className:find("axe", 1, true)
+        or className:find("crowbar", 1, true)
+        or className:find("fists", 1, true)
+        or className:find("machete", 1, true)
+        or className:find("melee", 1, true)
+end
+
+local function IsMeleeRetreatActive(controller)
+    return (controller.MeleeRetreatUntil or 0) > CurTime()
 end
 
 local function ShouldPressAttack(bot, controller)
@@ -86,7 +106,11 @@ local function ShouldPressAttack(bot, controller)
             return false
         end
 
-        if IsKnifeActive(bot) then
+        if IsActiveSurvivorMelee(bot) then
+            if IsMeleeRetreatActive(controller) then
+                return false
+            end
+
             return distanceSqr <= 72 * 72 and HasClearShot(bot, controller, target)
         end
 
@@ -123,6 +147,12 @@ function SC.BuildActionButtons(bot, controller)
 
     if ShouldPressAttack(bot, controller) then
         buttons = bit.bor(buttons, IN_ATTACK)
+
+        if IsActiveSurvivorMelee(bot) then
+            -- Create a short hit-and-run window after a melee swing.
+            controller.LastMeleeAttackTime = CurTime()
+            controller.MeleeRetreatUntil = CurTime() + 0.55
+        end
     end
 
     if bot:GetMoveType() == MOVETYPE_LADDER then

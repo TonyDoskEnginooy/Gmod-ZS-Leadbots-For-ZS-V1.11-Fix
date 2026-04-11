@@ -55,6 +55,8 @@ function SM.EnsureControllerState(controller)
     controller.strafeAngle = controller.strafeAngle or 1
     controller.LookAtTime = controller.LookAtTime or 0
     controller.cur_segment = controller.cur_segment or 2
+    controller.MeleeRetreatUntil = controller.MeleeRetreatUntil or 0
+    controller.LastMeleeAttackTime = controller.LastMeleeAttackTime or 0
 end
 
 function SM.PrepareControllerForMove(bot, controller, mv)

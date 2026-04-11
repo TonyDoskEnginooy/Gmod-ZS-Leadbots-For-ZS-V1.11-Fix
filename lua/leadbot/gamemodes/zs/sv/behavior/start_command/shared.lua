@@ -46,6 +46,8 @@ function SC.EnsureControllerState(controller)
     controller.LastStairTime = controller.LastStairTime or 0
     controller.strafeAngle = controller.strafeAngle or 1
     controller.NextPropThrow = controller.NextPropThrow or 0
+    controller.MeleeRetreatUntil = controller.MeleeRetreatUntil or 0
+    controller.LastMeleeAttackTime = controller.LastMeleeAttackTime or 0
 end
 
 function SC.SetRoamState(bot)
