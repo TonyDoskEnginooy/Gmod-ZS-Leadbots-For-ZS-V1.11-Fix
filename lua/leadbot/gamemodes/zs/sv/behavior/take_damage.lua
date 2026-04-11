@@ -62,9 +62,17 @@ local function OnZombieBotHurt(aggressor, victimBot)
 end
 
 function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
-    if not IsValid(victimBot) or not IsValidAggressor(aggressor) then return end
+    if not IsValid(victimBot) then return end
 
     local damage = dmgInfo:GetDamage()
+
+    if hp <= damage then
+        -- Preserve context for PostPlayerDeath so revive handling can distinguish
+        -- a zombie second wind from other respawn flows.
+        victimBot.LeadBot_WasZombieBeforeDeath = victimBot:Team() == TEAM_ZOMBIE
+    end
+
+    if not IsValidAggressor(aggressor) then return end
 
     if leadbot_cs:GetBool()
     and aggressor:IsPlayer()
@@ -76,7 +84,9 @@ function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
         victimBot:SetVelocity(victimBot:GetVelocity() + (force / 4))
     end
 
-    if hp <= damage then return end
+    if hp <= damage then
+        return
+    end
 
     if victimBot:Team() == TEAM_SURVIVORS then
         OnSurvivorBotHurt(aggressor, victimBot)
