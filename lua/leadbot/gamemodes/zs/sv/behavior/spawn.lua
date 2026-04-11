@@ -311,6 +311,45 @@ local function ApplyCounterStrikeZombieHealth(bot)
     end)
 end
 
+local function ClampColorVector(vec, fallback)
+    if not isvector(vec) then
+        return fallback
+    end
+
+    return Vector(
+        math.Clamp(vec.x, 0, 1),
+        math.Clamp(vec.y, 0, 1),
+        math.Clamp(vec.z, 0, 1)
+    )
+end
+
+local function ApplySurvivorLateAppearance(bot)
+    -- Run after the gamemode finishes its own spawn/model logic.
+    timer.Simple(0.1, function()
+        if not IsValid(bot) or bot:Team() ~= TEAM_SURVIVORS then
+            return
+        end
+
+        local modelName = bot.LBGetModel and bot:LBGetModel() or nil
+        if isstring(modelName) and modelName ~= "" then
+            local translatedModel = player_manager.TranslatePlayerModel(modelName)
+            if isstring(translatedModel) and translatedModel ~= "" then
+                bot:SetModel(translatedModel)
+                bot:SetNWString("LeadBot_AvatarModel", translatedModel)
+            end
+        end
+
+        if bot.LBGetColor then
+            local playerColor = ClampColorVector(bot:LBGetColor(), Vector(0, 0, 0))
+            local weaponColor = ClampColorVector(bot:LBGetColor(true), Vector(0, 0, 0))
+
+            bot:SetPlayerColor(playerColor)
+            bot:SetWeaponColor(weaponColor)
+            bot:SetNWVector("LeadBot_AvatarColor", playerColor)
+        end
+    end)
+end
+
 function LeadBot.Spawn(bot)
     SetKnockbackEnabled(bot)
 
@@ -319,6 +358,7 @@ function LeadBot.Spawn(bot)
     if teamId == TEAM_SURVIVORS then
         -- This is a state reset, not a real survivor class system.
         bot:SetZombieClass(DEFAULT_CLASS_ID)
+        ApplySurvivorLateAppearance(bot)
         return
     end
 

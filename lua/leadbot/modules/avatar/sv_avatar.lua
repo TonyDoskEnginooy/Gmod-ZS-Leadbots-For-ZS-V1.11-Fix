@@ -5,7 +5,7 @@ function LeadBot.AddBotOverride(bot)
         oldAddBot(bot)
     end
 
-    timer.Simple(0, function()
+    timer.Simple(0.1, function()
         if not IsValid(bot) then
             return
         end

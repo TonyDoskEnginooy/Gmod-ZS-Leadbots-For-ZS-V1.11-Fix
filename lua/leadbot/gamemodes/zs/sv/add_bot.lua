@@ -284,10 +284,6 @@ local function PickModelFromPool(pool, preferUnused)
 end
 
 local function GetRandomModelName(preferUnused)
-    if LeadBot.PlayerColor == "default" then
-        return "kleiner"
-    end
-
     local pool = GetConfiguredModelPool()
     if #pool == 0 then
         pool = GetDefaultModelPool()
@@ -338,11 +334,6 @@ local function GetBotName()
         generated = FormatBotName(original_name)
     end
 
-    if LeadBot.PlayerColor == "default" then
-        original_name = "kleiner"
-        generated = "Kleiner"
-    end
-
     generated = (leadbot_name_prefix and leadbot_name_prefix:GetString() or "") .. (generated or "Leadbot")
 
     return LeadBot.Prefix .. generated, original_name
@@ -356,15 +347,11 @@ local function GetBotColors()
     local color = Vector(-1, -1, -1)
     local weaponcolor = Vector(0.30, 1.80, 2.10)
 
-    if LeadBot.PlayerColor ~= "default" then
-        local botcolor = ColorRand()
-        local botweaponcolor = ColorRand()
+    local botcolor = ColorRand()
+    local botweaponcolor = ColorRand()
 
-        color = Vector(botcolor.r / 255, botcolor.g / 255, botcolor.b / 255)
-        weaponcolor = Vector(botweaponcolor.r / 255, botweaponcolor.g / 255, botweaponcolor.b / 255)
-    else
-        color = Vector(0.24, 0.34, 0.41)
-    end
+    color = Vector(botcolor.r / 255, botcolor.g / 255, botcolor.b / 255)
+    weaponcolor = Vector(botweaponcolor.r / 255, botweaponcolor.g / 255, botweaponcolor.b / 255)
 
     return color, weaponcolor
 end
