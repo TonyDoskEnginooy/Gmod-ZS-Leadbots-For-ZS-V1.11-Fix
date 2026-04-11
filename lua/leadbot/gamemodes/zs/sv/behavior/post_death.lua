@@ -1,3 +1,5 @@
+local TORSO_ZOMBIE_CLASS = 9
+
 local function GetSecondWindTimerName(bot)
     return bot:UniqueID() .. "secondwind"
 end
@@ -7,22 +9,18 @@ function LeadBot.PostDeath(bot)
         return
     end
 
-    local wasZombieBeforeDeath = bot.LeadBot_WasZombieBeforeDeath
-    bot.LeadBot_WasZombieBeforeDeath = nil
-
-    if not wasZombieBeforeDeath then
+    if not bot.LeadBot_WasZombieBeforeDeath then
         return
     end
 
+    -- Second wind should revive the bot in the same class it had before falling.
     if not timer.Exists(GetSecondWindTimerName(bot)) then
         return
     end
 
     local zombieClass = bot:GetZombieClass()
-    if not zombieClass or zombieClass <= 0 then
-        return
+    
+    if zombieClass == TORSO_ZOMBIE_CLASS then
+        bot.LeadBot_PreserveZombieClass = zombieClass
     end
-
-    -- Second wind should revive the bot in the same class it had before falling.
-    bot.LeadBot_PreserveZombieClass = zombieClass
 end

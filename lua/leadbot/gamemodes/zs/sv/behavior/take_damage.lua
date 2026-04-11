@@ -111,9 +111,6 @@ function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
     local damage = dmgInfo:GetDamage()
 
     if hp <= damage then
-        -- Preserve context for PostPlayerDeath so revive handling can distinguish
-        -- a zombie second wind from other respawn flows.
-        victimBot.LeadBot_WasZombieBeforeDeath = victimBot:Team() == TEAM_ZOMBIE
         TryDownedVoice(victimBot, hp, damage, dmgInfo)
     else
         TryHelpVoice(victimBot, hp - damage, damage)

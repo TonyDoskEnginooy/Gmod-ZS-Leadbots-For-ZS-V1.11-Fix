@@ -13,23 +13,6 @@ local function GetSecondWindTimerName(bot)
     return bot:UniqueID() .. "secondwind"
 end
 
-local function PreserveTorsoRespawn(victimBot)
-    if not IsValid(victimBot) or victimBot:Team() ~= TEAM_ZOMBIE then return end
-    if victimBot:GetZombieClass() ~= TORSO_ZOMBIE_CLASS then return end
-
-    -- Preserve the torso class for the next spawn triggered by SecondWind.
-    victimBot.LeadBot_PreserveZombieClass = TORSO_ZOMBIE_CLASS
-end
-
-local function ResetZombieClassIfNeeded(victimBot)
-    if not IsValid(victimBot) or victimBot:Team() ~= TEAM_ZOMBIE then return end
-
-    local class = victimBot:GetZombieClass()
-    if CHANGE_TO_NORMAL_ZOMBIE[class] then
-        victimBot:SetZombieClass(NORMAL_ZOMBIE_CLASS)
-    end
-end
-
 local function ApplyTorsoHeightFix(victimBot)
     if not IsValid(victimBot) or victimBot:Team() ~= TEAM_ZOMBIE then return end
     if victimBot:GetZombieClass() ~= TORSO_ZOMBIE_CLASS then return end
@@ -44,7 +27,7 @@ local function TryTauntOnKill(victim, aggressor)
     if aggressor == victim or aggressor:Team() == victim:Team() then return end
     if type(LeadBot) ~= "table" or type(LeadBot.TryTalkToMe) ~= "function" then return end
 
-    timer.Simple(0, function()
+    timer.Simple(0.0001, function()
         if not IsValid(aggressor) then return end
 
         if IsValid(victim)
@@ -68,21 +51,7 @@ end
 
 function LeadBot.Death(victim, aggressor)
     if IsValid(victim) and victim:IsBot() and victim:Team() == TEAM_ZOMBIE then
-        PreserveTorsoRespawn(victim)
-        ResetZombieClassIfNeeded(victim)
         ApplyTorsoHeightFix(victim)
-
-        timer.Simple(2.1, function()
-            if IsValid(victim) then
-                ApplyTorsoHeightFix(victim)
-            end
-        end)
-
-        timer.Simple(2.6, function()
-            if IsValid(victim) then
-                ApplyTorsoHeightFix(victim)
-            end
-        end)
     end
 
     if aggressor ~= victim and IsValid(aggressor) and IsValid(victim) then

@@ -376,6 +376,7 @@ function LeadBot.Spawn(bot)
         -- This is a state reset, not a real survivor class system.
         bot:SetZombieClass(DEFAULT_CLASS_ID)
         ApplySurvivorLateAppearance(bot)
+        bot.LeadBot_WasZombieBeforeDeath = false
         return
     end
 
@@ -386,8 +387,8 @@ function LeadBot.Spawn(bot)
     local zombieClassId
     local preservedZombieClass = bot.LeadBot_PreserveZombieClass
 
-    if not bot.LeadBot_OldZombie then
-        bot.LeadBot_OldZombie = true
+    if not bot.LeadBot_WasZombieBeforeDeath then
+        bot.LeadBot_WasZombieBeforeDeath = true
         zombieClassId = DEFAULT_CLASS_ID
     elseif preservedZombieClass then
         -- Keep special revive classes for a single spawn only.
