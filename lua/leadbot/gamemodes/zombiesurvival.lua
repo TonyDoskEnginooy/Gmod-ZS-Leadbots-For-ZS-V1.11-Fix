@@ -12,7 +12,7 @@ LeadBot.CheckNavMesh = true -- disable the nav mesh check
 LeadBot.TeamPlay = true -- don't hurt players on the bots team
 LeadBot.AFKBotOverride = true -- players that become AFK will be turned into bots
 LeadBot.SuicideAFK = false -- kill the player when entering/exiting afk
-LeadBot.NoFlashlight = true -- disable flashlight being enabled in dark areas
+LeadBot.NoFlashlight = false -- disable flashlight being enabled in dark areas
 LeadBot.Strategies = 3 -- how many strategies can the bot pick from
 
 ZSB = {
