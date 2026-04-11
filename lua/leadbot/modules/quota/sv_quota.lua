@@ -51,7 +51,6 @@ local function ScheduleMissingBots(currentBots, allowedBots)
     for i = 1, missingBots do
         timer.Simple(0.1 + (i * 0.5), function()
             if currentGeneration ~= quotaGeneration then return end
-            if LeadBot.AFKBotOverride then return end
             if GetQuota() <= 0 then return end
 
             local liveAllowedBots = GetAllowedBotCount()
@@ -78,7 +77,6 @@ cvars.AddChangeCallback("leadbot_quota", function(_, oldValue, newValue)
 end, "LeadBot_Quota")
 
 hook.Add("Think", "LeadBot_Quota", function()
-    if LeadBot.AFKBotOverride then return end
     if GetQuota() <= 0 then return end
     if nextCheck >= CurTime() then return end
 

@@ -30,7 +30,6 @@ local function ShouldBecomeAFKBot(ply)
     return ply.LastAFKCheck < CurTime()
         and not ply:IsLBot()
         and not ply:GetNWBool("LeadBot_AFK")
-        and ply:Team() == TEAM_ZOMBIE
 end
 
 concommand.Add("leadbot_afk", function(ply)
