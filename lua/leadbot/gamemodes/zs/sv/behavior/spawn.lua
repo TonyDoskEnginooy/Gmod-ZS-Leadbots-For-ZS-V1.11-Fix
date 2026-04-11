@@ -350,6 +350,23 @@ local function ApplySurvivorLateAppearance(bot)
     end)
 end
 
+local function FinalizeZombieLoadout(bot)
+    timer.Simple(0.1, function()
+        if not IsValid(bot) or not bot:Alive() or bot:Team() ~= TEAM_ZOMBIE then return end
+
+        StripHumanWeapons(bot)
+
+        local zombieClass = GetZombieClassData(bot:GetZombieClass())
+        if not zombieClass or not zombieClass.SWEP then return end
+
+        if not bot:HasWeapon(zombieClass.SWEP) then
+            bot:Give(zombieClass.SWEP)
+        end
+
+        bot:SelectWeapon(zombieClass.SWEP)
+    end)
+end
+
 function LeadBot.Spawn(bot)
     SetKnockbackEnabled(bot)
 
@@ -366,21 +383,20 @@ function LeadBot.Spawn(bot)
         return
     end
 
-    StripHumanWeapons(bot)
-
+    local zombieClassId
     local preservedZombieClass = bot.LeadBot_PreserveZombieClass
+
     if preservedZombieClass then
         -- Keep special revive classes for a single spawn only.
         bot.LeadBot_PreserveZombieClass = nil
-        bot:SetZombieClass(preservedZombieClass)
-        return
-    end
-
-    if leadbot_cs:GetBool() then
-        bot:SetZombieClass(DEFAULT_CLASS_ID)
+        zombieClassId = preservedZombieClass
+    elseif leadbot_cs:GetBool() then
+        zombieClassId = DEFAULT_CLASS_ID
         ApplyCounterStrikeZombieHealth(bot)
-        return
+    else
+        zombieClassId = PickZombieClass(bot)
     end
 
-    bot:SetZombieClass(PickZombieClass(bot))
+    bot:SetZombieClass(zombieClassId)
+    FinalizeZombieLoadout(bot)
 end
