@@ -101,6 +101,46 @@ local function CreateWantedEntBuckets()
     return buckets
 end
 
+local function GetEntityScanPoint(ent, referencePos)
+    if not IsValid(ent) then
+        return nil
+    end
+
+    if ent:IsPlayer() or ent:IsNPC() then
+        return ent:WorldSpaceCenter()
+    end
+
+    if isvector(referencePos) and ent.NearestPoint then
+        local ok, nearestPoint = pcall(ent.NearestPoint, ent, referencePos)
+
+        if ok and isvector(nearestPoint) then
+            return nearestPoint
+        end
+    end
+
+    if ent.WorldSpaceCenter then
+        local ok, worldCenter = pcall(ent.WorldSpaceCenter, ent)
+
+        if ok and isvector(worldCenter) then
+            return worldCenter
+        end
+    end
+
+    if ent.OBBCenter and ent.LocalToWorld then
+        local ok, localCenter = pcall(ent.OBBCenter, ent)
+
+        if ok and isvector(localCenter) then
+            local okWorld, worldCenter = pcall(ent.LocalToWorld, ent, localCenter)
+
+            if okWorld and isvector(worldCenter) then
+                return worldCenter
+            end
+        end
+    end
+
+    return ent:GetPos()
+end
+
 local BOT_SCAN_RANGE = Vector(1500, 1500, 1500)
 local BOT_SCAN_DELAY = 0.5
 local NEAR_DISTANCE = 90
@@ -123,6 +163,7 @@ function ZSB.Util:FindEnts(bot)
     end
 
     local botPos = bot:GetPos()
+    local botEyePos = bot:EyePos()
     local nearEnts = ents.FindInBox(botPos - BOT_SCAN_RANGE, botPos + BOT_SCAN_RANGE)
 
     local foundEnts = {
@@ -137,9 +178,9 @@ function ZSB.Util:FindEnts(bot)
             local className = ent:GetClass()
 
             if wantedCmdClasses[className] or isNPC then
-                local entPos = ent:GetPos()
+                local entPos = GetEntityScanPoint(ent, botEyePos)
 
-                if bot:VisibleVec(entPos) then
+                if isvector(entPos) and bot:VisibleVec(entPos) then
                     local bucketName = isNPC and "NPCs" or className
 
                     table.insert(foundEnts.area[bucketName], ent)

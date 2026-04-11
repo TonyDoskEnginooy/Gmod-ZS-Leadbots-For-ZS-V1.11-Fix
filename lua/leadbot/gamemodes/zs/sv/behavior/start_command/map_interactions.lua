@@ -12,12 +12,9 @@ SC._MapInteractionsLoaded = true
 function SC.BreakRotatingDoor(bot, doors)
     if not SC.HasEntries(doors) then return end
 
-    local mapName = game.GetMap()
-    if mapName ~= "zs_jail_v1" and mapName ~= "zs_placid" then return end
-
     local door = doors[math.random(1, #doors)]
     if IsValid(door) and door:GetClass() == "prop_door_rotating" then
-        door:Fire("Break", bot, 0)
+        door:Fire("Break", "", 0, bot, bot)
     end
 end
 

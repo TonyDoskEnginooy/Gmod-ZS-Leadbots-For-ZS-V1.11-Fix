@@ -167,7 +167,15 @@ function SC.IsSimpleObstacleTarget(_, ent)
 
         local model = ent:GetModel()
 
-        return not SC.IsIgnoredPropModel(model) and not SC.IsBoardModel(model)
+        if SC.IsIgnoredPropModel(model) then
+            return false
+        end
+
+        if SC.IsBoardModel(model) then
+            return SC.IsMapBoardEntity(ent)
+        end
+
+        return true
     end
 
     if class == "prop_dynamic" then

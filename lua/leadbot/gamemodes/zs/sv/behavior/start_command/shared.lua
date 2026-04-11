@@ -46,8 +46,6 @@ function SC.EnsureControllerState(controller)
     controller.LastStairTime = controller.LastStairTime or 0
     controller.strafeAngle = controller.strafeAngle or 1
     controller.NextPropThrow = controller.NextPropThrow or 0
-    controller.MeleeRetreatUntil = controller.MeleeRetreatUntil or 0
-    controller.LastMeleeAttackTime = controller.LastMeleeAttackTime or 0
 end
 
 function SC.SetRoamState(bot)
@@ -117,4 +115,12 @@ function SC.IsBoardModel(model)
     return model == "models/props_debris/wood_board04a.mdl"
         or model == "models/props_debris/wood_board05a.mdl"
         or model == "models/props_debris/wood_board06a.mdl"
+end
+
+function SC.IsMapBoardEntity(ent)
+    return IsValid(ent)
+        and ent:GetClass() == "prop_physics"
+        and SC.IsBoardModel(ent:GetModel())
+        and ent.CreatedByMap
+        and ent:CreatedByMap()
 end
