@@ -93,6 +93,239 @@ local function IsMeleeRetreatActive(controller)
     return (controller.MeleeRetreatUntil or 0) > CurTime()
 end
 
+local function GetWeaponClassLower(weapon)
+    if not IsValid(weapon) then
+        return ""
+    end
+
+    return string.lower(weapon:GetClass() or "")
+end
+
+local function SafeWeaponCall(weapon, methodName, defaultValue)
+    if not IsValid(weapon) then
+        return defaultValue
+    end
+
+    local method = weapon[methodName]
+    if not isfunction(method) then
+        return defaultValue
+    end
+
+    local ok, value = pcall(method, weapon)
+    if not ok then
+        return defaultValue
+    end
+
+    if value == nil then
+        return defaultValue
+    end
+
+    return value
+end
+
+local function SafeWeaponBool(weapon, methodName, defaultValue)
+    local value = SafeWeaponCall(weapon, methodName, defaultValue)
+
+    if isbool(value) then
+        return value
+    end
+
+    return defaultValue
+end
+
+local function SafeWeaponNumber(weapon, methodName, defaultValue)
+    local value = SafeWeaponCall(weapon, methodName, defaultValue)
+
+    if isnumber(value) then
+        return value
+    end
+
+    return defaultValue
+end
+
+local function IsHeadcrabLeapWeapon(className)
+    return className == "weapon_zs_headcrab"
+        or className == "weapon_zs_fastheadcrab"
+end
+
+local function IsHeadcrabLeapReady(weapon)
+    return IsValid(weapon)
+        and not weapon.Leaping
+        and (weapon.NextLeap or 0) <= CurTime()
+end
+
+local function ShouldUseHeadcrabLeap(bot, controller, weapon, target, distanceSqr, className)
+    if not IsHeadcrabLeapReady(weapon) or not bot:IsOnGround() then
+        return false
+    end
+
+    if not HasClearShot(bot, controller, target) then
+        return false
+    end
+
+    local minRange = 52
+    local maxRange = className == "weapon_zs_fastheadcrab" and 460 or 360
+
+    if distanceSqr < minRange * minRange or distanceSqr > maxRange * maxRange then
+        return false
+    end
+
+    local verticalDelta = math.abs(target:WorldSpaceCenter().z - bot:WorldSpaceCenter().z)
+
+    return verticalDelta <= 180
+end
+
+local function CanStartPoisonHeadcrabLeap(weapon)
+    return IsValid(weapon)
+        and SafeWeaponNumber(weapon, "GetNextLeap", 0) <= CurTime()
+        and not SafeWeaponBool(weapon, "IsLeaping", false)
+        and not SafeWeaponBool(weapon, "IsGoingToSpit", false)
+end
+
+local function CanStartPoisonHeadcrabSpit(weapon)
+    return IsValid(weapon)
+        and SafeWeaponNumber(weapon, "GetNextSpit", 0) <= CurTime()
+        and not SafeWeaponBool(weapon, "IsLeaping", false)
+        and not SafeWeaponBool(weapon, "IsGoingToSpit", false)
+end
+
+local function ShouldUsePoisonHeadcrabLeap(bot, controller, weapon, target, distanceSqr)
+    if not CanStartPoisonHeadcrabLeap(weapon) or not bot:IsOnGround() then
+        return false
+    end
+
+    if not HasClearShot(bot, controller, target) then
+        return false
+    end
+
+    if distanceSqr < 60 * 60 or distanceSqr > 320 * 320 then
+        return false
+    end
+
+    local verticalDelta = math.abs(target:WorldSpaceCenter().z - bot:WorldSpaceCenter().z)
+
+    return verticalDelta <= 170
+end
+
+local function ShouldUsePoisonHeadcrabSpit(bot, controller, weapon, target, distanceSqr)
+    if not CanStartPoisonHeadcrabSpit(weapon) or not bot:IsOnGround() then
+        return false
+    end
+
+    if distanceSqr < 180 * 180 or distanceSqr > 900 * 900 then
+        return false
+    end
+
+    return HasClearShot(bot, controller, target)
+end
+
+local function CanUseFastZombieSecondary(weapon)
+    return IsValid(weapon)
+        and not weapon.Leaping
+        and not SafeWeaponBool(weapon, "GetSwinging", false)
+        and not SafeWeaponBool(weapon, "GetClimbing", false)
+        and SafeWeaponNumber(weapon, "GetPounceTime", 0) <= CurTime()
+end
+
+local function ShouldUseFastZombieSecondary(bot, controller, weapon, target, distanceSqr)
+    if not CanUseFastZombieSecondary(weapon) then
+        return false
+    end
+
+    if bot:IsOnGround() then
+        local verticalDelta = target:WorldSpaceCenter().z - bot:WorldSpaceCenter().z
+
+        if verticalDelta > 72 and distanceSqr <= 260 * 260 and controller.NextJump ~= 0 then
+            controller.NextJump = 0
+        end
+
+        if distanceSqr < 95 * 95 or distanceSqr > 625 * 625 then
+            return false
+        end
+
+        return HasClearShot(bot, controller, target)
+    end
+
+    if (weapon.NextClimb or 0) > CurTime() then
+        return false
+    end
+
+    if distanceSqr > 700 * 700 then
+        return false
+    end
+
+    local toTarget = (target:WorldSpaceCenter() - bot:GetShootPos())
+    if toTarget:LengthSqr() <= 0.001 then
+        return false
+    end
+
+    return bot:GetAimVector():Dot(toTarget:GetNormalized()) > 0.55
+end
+
+local function GetPoisonZombieHeadcrabCount(weapon)
+    if not IsValid(weapon) then
+        return 0
+    end
+
+    if isnumber(weapon.Headcrabs) then
+        return weapon.Headcrabs
+    end
+
+    return SafeWeaponNumber(weapon, "GetHeadcrabs", 0)
+end
+
+local function ShouldUsePoisonZombieThrow(bot, controller, weapon, target, distanceSqr)
+    if controller.NextPoisonZombieThrow > CurTime() then
+        return false
+    end
+
+    if GetPoisonZombieHeadcrabCount(weapon) <= 0 then
+        return false
+    end
+
+    if distanceSqr < 190 * 190 or distanceSqr > 950 * 950 then
+        return false
+    end
+
+    if not HasClearShot(bot, controller, target) then
+        return false
+    end
+
+    return bot:GetVelocity():Length2DSqr() <= 350 * 350
+end
+
+local function ChooseZombieSecondaryAttack(bot, controller, weapon, target, distanceSqr)
+    if bot:Team() ~= TEAM_ZOMBIE or not IsValid(weapon) or not IsCombatTarget(bot, target) then
+        return nil
+    end
+
+    local className = GetWeaponClassLower(weapon)
+
+    if className == "weapon_zs_fastzombie" then
+        if ShouldUseFastZombieSecondary(bot, controller, weapon, target, distanceSqr) then
+            return "fastzombie_special"
+        end
+
+        return nil
+    end
+
+    if className == "weapon_zs_poisonheadcrab" then
+        if ShouldUsePoisonHeadcrabSpit(bot, controller, weapon, target, distanceSqr) then
+            return "poisonheadcrab_spit"
+        end
+
+        return nil
+    end
+
+    if className == "weapon_zs_poisonzombie" then
+        if ShouldUsePoisonZombieThrow(bot, controller, weapon, target, distanceSqr) then
+            return "poisonzombie_throw"
+        end
+    end
+
+    return nil
+end
+
 local function ShouldPressAttack(bot, controller)
     local target = controller.Target
     if not IsValid(target) then
@@ -119,6 +352,17 @@ local function ShouldPressAttack(bot, controller)
 
     if bot:Team() == TEAM_ZOMBIE then
         if IsCombatTarget(bot, target) then
+            local weapon = bot:GetActiveWeapon()
+            local className = GetWeaponClassLower(weapon)
+
+            if IsHeadcrabLeapWeapon(className) then
+                return ShouldUseHeadcrabLeap(bot, controller, weapon, target, distanceSqr, className)
+            end
+
+            if className == "weapon_zs_poisonheadcrab" then
+                return ShouldUsePoisonHeadcrabLeap(bot, controller, weapon, target, distanceSqr)
+            end
+
             return distanceSqr <= 22500
         end
 
@@ -135,6 +379,8 @@ function SC.BuildActionButtons(bot, controller)
     local weapon = bot:GetActiveWeapon()
     local target = controller.Target
     local onStairs = controller.IsTraversingStairs == true
+    local distanceSqr = IsValid(target) and bot:GetPos():DistToSqr(target:GetPos()) or math.huge
+    local secondaryAttack = ChooseZombieSecondaryAttack(bot, controller, weapon, target, distanceSqr)
 
     if IsValid(weapon) then
         local clip1 = weapon:Clip1()
@@ -145,7 +391,13 @@ function SC.BuildActionButtons(bot, controller)
         end
     end
 
-    if ShouldPressAttack(bot, controller) then
+    if secondaryAttack then
+        buttons = bit.bor(buttons, IN_ATTACK2)
+
+        if secondaryAttack == "poisonzombie_throw" then
+            controller.NextPoisonZombieThrow = CurTime() + 4
+        end
+    elseif ShouldPressAttack(bot, controller) then
         buttons = bit.bor(buttons, IN_ATTACK)
 
         if IsActiveSurvivorMelee(bot) then
