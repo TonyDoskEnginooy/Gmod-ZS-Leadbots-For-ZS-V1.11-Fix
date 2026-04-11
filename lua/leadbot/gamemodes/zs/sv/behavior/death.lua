@@ -53,12 +53,11 @@ function LeadBot.Death(victimBot, aggressor)
         end)
     end
 
-    if aggressor ~= victimBot and IsValid(aggressor) then
+    if aggressor ~= victimBot and IsValid(aggressor) and IsValid(victimBot) then
         if leadbot_hregen:GetBool()
         and aggressor:IsPlayer()
         and aggressor:IsBot()
         and aggressor:Team() == TEAM_SURVIVORS
-        and IsValid(victimBot)
         and victimBot:Team() == TEAM_ZOMBIE then
             local class = victimBot:GetZombieClass()
             local zombieClass = ZombieClasses and ZombieClasses[class]
@@ -70,8 +69,7 @@ function LeadBot.Death(victimBot, aggressor)
 
         if leadbot_cs:GetBool()
         and aggressor:IsPlayer()
-        and aggressor:Team() == TEAM_ZOMBIE
-        and IsValid(victimBot) then
+        and aggressor:Team() == TEAM_ZOMBIE then
             victimBot:EmitSound("npc/fast_zombie/fz_scream1.wav", CHAN_REPLACE)
         end
     end

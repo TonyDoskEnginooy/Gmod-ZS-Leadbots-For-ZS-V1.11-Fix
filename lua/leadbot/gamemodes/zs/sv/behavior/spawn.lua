@@ -386,7 +386,10 @@ function LeadBot.Spawn(bot)
     local zombieClassId
     local preservedZombieClass = bot.LeadBot_PreserveZombieClass
 
-    if preservedZombieClass then
+    if not bot.LeadBot_OldZombie then
+        bot.LeadBot_OldZombie = true
+        zombieClassId = DEFAULT_CLASS_ID
+    elseif preservedZombieClass then
         -- Keep special revive classes for a single spawn only.
         bot.LeadBot_PreserveZombieClass = nil
         zombieClassId = preservedZombieClass
