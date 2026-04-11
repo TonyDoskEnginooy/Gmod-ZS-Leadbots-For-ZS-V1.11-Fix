@@ -80,7 +80,7 @@ local SURVIVOR_WEAPON_OVERRIDES = {
     },
 
     weapon_zs_battleaxe = {
-        role = "melee",
+        role = "pistol",
         power = 8,
         closeBonus = 260,
         farBonus = -1000,
@@ -171,10 +171,10 @@ local SURVIVOR_WEAPON_OVERRIDES = {
 }
 
 local SURVIVOR_LOW_AMMO_THRESHOLDS = {
-    pistol = 4,
-    smg = 6,
-    shotgun = 2,
-    rifle = 2
+    pistol = 12,
+    smg = 25,
+    shotgun = 6,
+    rifle = 4
 }
 
 local function GetWeaponPrimaryAmmoName(weapon)
@@ -561,9 +561,10 @@ local function ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceS
     if controller.Target:Team() ~= TEAM_ZOMBIE then return false end
     if not HasWeaponClass(bot, "weapon_zs_swissarmyknife") then return false end
     if not HasLowAmmoReserves(bot) then return false end
-    if distanceSqr > 300 * 300 then return false end
+    if bot:Health() < 35 then return false end
+    if CountNearbyZombies(bot, foundEnts, 160 * 160) > 1 then return false end
 
-    return CountNearbyZombies(bot, foundEnts, 350 * 350) == 1
+    return true
 end
 
 local function HasNoReserveFirearmAmmo(bot)
@@ -616,7 +617,7 @@ function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
 
     controller.ConserveAmmoWithKnife = conserveAmmoWithKnife
 
-    if (clip <= 0 and HasNoReserveFirearmAmmo(bot))
+    if (clip <= 0 and activeWeapon.GetClass and activeWeapon:GetClass() == "weapon_zs_swissarmyknife" and HasNoReserveFirearmAmmo(bot))
         or conserveAmmoWithKnife
     then
         SelectMeleeFallback(bot)

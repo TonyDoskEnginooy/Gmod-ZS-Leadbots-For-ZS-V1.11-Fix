@@ -79,9 +79,7 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
     end
 
     if bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) then
-        local meleeActive = IsActiveSurvivorMelee(bot)
-
-        if controller.ConserveAmmoWithKnife or meleeActive then
+        if controller.ConserveAmmoWithKnife then
             if (controller.MeleeRetreatUntil or 0) > CurTime() then
                 if distanceSqr <= 150 * 150 then
                     mv:SetForwardSpeed(-1200)

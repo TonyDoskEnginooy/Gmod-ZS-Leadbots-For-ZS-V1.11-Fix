@@ -34,8 +34,8 @@ function LeadBot.StartCommand(bot, cmd)
     if IsValid(controller.Target) then
         local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
 
-        SC.UpdateGoalFromTarget(bot, controller)
         SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
+        SC.UpdateGoalFromTarget(bot, controller)
         SC.TryThrowNearbyProp(bot, controller, foundEnts)
     elseif not controller.PosGen or bot:GetPos():DistToSqr(controller.PosGen) < 1000 or controller.LastSegmented < CurTime() then
         SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy())
