@@ -288,7 +288,7 @@ local function StripHumanWeapons(bot)
     for _, weapon in ipairs(bot:GetWeapons()) do
         local weaponClass = weapon:GetClass()
 
-        if weapons.IsBasedOn(weaponClass, "weapon_zs_base") then
+        if weapons.IsBasedOn(weaponClass, "weapon_zs_base") or weaponClass == "weapon_zs_swissarmyknife" then
             bot:StripWeapon(weaponClass)
         end
     end
