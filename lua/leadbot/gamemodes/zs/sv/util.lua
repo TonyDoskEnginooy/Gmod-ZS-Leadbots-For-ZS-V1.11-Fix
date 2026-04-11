@@ -6,6 +6,8 @@ end
 -- ----------------------------------------------
 
 local WRAITH_INVISIBLE_ALPHA_THRESHOLD = math.Round(255 * 0.25)
+local TORSO_ZOMBIE_CLASS = 9
+local TORSO_AIM_OFFSET = Vector(0, 0, -20)
 
 local function GetZombieClassName(bot)
     if not IsValid(bot) or not bot.GetZombieClass then
@@ -29,6 +31,23 @@ local function GetZombieClassName(bot)
     end
 
     return nil
+end
+
+local function IsTorsoZombie(target)
+    if not IsValid(target) or not target:IsPlayer() or target:Team() ~= TEAM_ZOMBIE then
+        return false
+    end
+
+    if target.GetZombieClass and target:GetZombieClass() == TORSO_ZOMBIE_CLASS then
+        return true
+    end
+
+    local zombieClassName = GetZombieClassName(target)
+    if not isstring(zombieClassName) then
+        return false
+    end
+
+    return string.find(string.lower(zombieClassName), "torso", 1, true) ~= nil
 end
 
 function ZSB.Util:GetZombieClassName(bot)
@@ -84,7 +103,13 @@ local function GetTargetBodyCenter(target)
     end
 
     if target:IsPlayer() then
-        return target:WorldSpaceCenter()
+        local bodyCenter = target:WorldSpaceCenter()
+
+        if IsTorsoZombie(target) then
+            bodyCenter = bodyCenter + TORSO_AIM_OFFSET
+        end
+
+        return bodyCenter
     end
 
     if target:IsNPC() then
@@ -92,6 +117,10 @@ local function GetTargetBodyCenter(target)
     end
 
     return target:LocalToWorld(target:OBBCenter())
+end
+
+function ZSB.Util:GetTargetBodyCenter(target)
+    return GetTargetBodyCenter(target)
 end
 
 function ZSB.Util:GetCombatAimPoint(attacker, target)
@@ -117,11 +146,13 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
     end
 
     if attacker:IsPlayer() and attacker:Team() == TEAM_SURVIVORS and target:Team() == TEAM_ZOMBIE then
-        if distanceSqr > 260 * 260 then
-            local headOffset = target:EyePos() - aimPoint
-            aimPoint = aimPoint + headOffset * 0.35
-        elseif distanceSqr > 120 * 120 then
-            aimPoint = aimPoint + Vector(0, 0, 6)
+        if not IsTorsoZombie(target) then
+            if distanceSqr > 260 * 260 then
+                local headOffset = target:EyePos() - aimPoint
+                aimPoint = aimPoint + headOffset * 0.35
+            elseif distanceSqr > 120 * 120 then
+                aimPoint = aimPoint + Vector(0, 0, 6)
+            end
         end
     else
         aimPoint = target:EyePos()
@@ -164,7 +195,7 @@ local function GetEntityScanPoint(ent, referencePos)
     end
 
     if ent:IsPlayer() or ent:IsNPC() then
-        return ent:WorldSpaceCenter()
+        return GetTargetBodyCenter(ent)
     end
 
     if isvector(referencePos) and ent.NearestPoint then

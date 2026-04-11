@@ -57,9 +57,14 @@ local function HasClearShot(bot, controller, target)
     end
 
     if target:IsPlayer() then
+        local bodyCenter = ZSB.Util:GetTargetBodyCenter(target)
+        if not bodyCenter then
+            return false
+        end
+
         local bodyTrace = util.TraceLine({
             start = bot:GetShootPos(),
-            endpos = target:WorldSpaceCenter(),
+            endpos = bodyCenter,
             filter = {bot, controller}
         })
 
