@@ -21,6 +21,62 @@ end
 
 -- ----------------------------------------------
 
+local function GetTargetBodyCenter(target)
+    if not IsValid(target) then
+        return nil
+    end
+
+    if target:IsPlayer() then
+        return target:WorldSpaceCenter()
+    end
+
+    if target:IsNPC() then
+        return target:WorldSpaceCenter()
+    end
+
+    return target:LocalToWorld(target:OBBCenter())
+end
+
+function ZSB.Util:GetCombatAimPoint(attacker, target)
+    if not IsValid(attacker) or not IsValid(target) then
+        return nil
+    end
+
+    local bodyCenter = GetTargetBodyCenter(target)
+    if not bodyCenter then
+        return nil
+    end
+
+    if not target:IsPlayer() then
+        local leadTime = math.Clamp(attacker:GetShootPos():Distance(bodyCenter) / 2600, 0.015, 0.09)
+        return bodyCenter + target:GetVelocity() * leadTime
+    end
+
+    local aimPoint = bodyCenter
+    local distanceSqr = attacker:GetShootPos():DistToSqr(bodyCenter)
+
+    if target:Crouching() then
+        aimPoint = aimPoint - Vector(0, 0, 6)
+    end
+
+    if attacker:IsPlayer() and attacker:Team() == TEAM_SURVIVORS and target:Team() == TEAM_ZOMBIE then
+        if distanceSqr > 260 * 260 then
+            local headOffset = target:EyePos() - aimPoint
+            aimPoint = aimPoint + headOffset * 0.35
+        elseif distanceSqr > 120 * 120 then
+            aimPoint = aimPoint + Vector(0, 0, 6)
+        end
+    else
+        aimPoint = target:EyePos()
+    end
+
+    local leadTime = math.Clamp(attacker:GetShootPos():Distance(aimPoint) / 3000, 0.01, 0.075)
+
+    return aimPoint + target:GetVelocity() * leadTime
+end
+
+-- ----------------------------------------------
+
 local wantedCmdClasses = {
     ["prop_door_rotating"] = true,
     ["func_movelinear"] = true,

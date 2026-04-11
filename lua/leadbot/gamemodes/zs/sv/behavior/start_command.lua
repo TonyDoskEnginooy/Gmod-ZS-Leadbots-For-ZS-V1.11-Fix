@@ -586,10 +586,24 @@ local function IsCombatTarget(bot, target)
 end
 
 local function HasClearShot(bot, controller, target)
-    local targetPos = target:IsPlayer() and target:EyePos() or target:WorldSpaceCenter()
+    local targetPos = ZSB.Util:GetCombatAimPoint(bot, target)
+    if not targetPos then
+        return false
+    end
 
+    local distanceSqr = bot:GetShootPos():DistToSqr(targetPos)
     local aimDir = (targetPos - bot:GetShootPos()):GetNormalized()
-    if bot:GetAimVector():Dot(aimDir) < 0.85 then
+    local requiredDot = 0.85
+
+    if distanceSqr <= 110 * 110 then
+        requiredDot = 0.3
+    elseif distanceSqr <= 220 * 220 then
+        requiredDot = 0.5
+    elseif distanceSqr <= 380 * 380 then
+        requiredDot = 0.7
+    end
+
+    if distanceSqr > 80 * 80 and bot:GetAimVector():Dot(aimDir) < requiredDot then
         return false
     end
 
@@ -599,7 +613,21 @@ local function HasClearShot(bot, controller, target)
         filter = {bot, controller}
     })
 
-    return tr.Entity == target
+    if tr.Entity == target then
+        return true
+    end
+
+    if target:IsPlayer() then
+        local bodyTrace = util.TraceLine({
+            start = bot:GetShootPos(),
+            endpos = target:WorldSpaceCenter(),
+            filter = {bot, controller}
+        })
+
+        return bodyTrace.Entity == target
+    end
+
+    return false
 end
 
 local function IsKnifeActive(bot)

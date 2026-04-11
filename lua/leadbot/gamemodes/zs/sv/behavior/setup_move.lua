@@ -236,6 +236,14 @@ local function GetAimLerp(bot, controller, strategy)
         aimSkill = 16
     end
 
+    if bot:Team() == TEAM_SURVIVORS then
+        aimSkill = aimSkill + math.Clamp(math.floor(bot:LBGetShootSkill() * 0.15), 0, 3)
+
+        if bot:LBGetSurvSkill() == 1 then
+            aimSkill = aimSkill + 4
+        end
+    end
+
     if bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) then
         if strategy > 0 and not bot.freeRoam then
             return FrameTime() * (aimSkill / 2), FrameTime() * (aimSkill / 2)
@@ -433,33 +441,23 @@ local function DebugPath(controller)
 end
 
 local function SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLook)
-    if IsValid(controller.Target) and controller.Target:IsPlayer() then
-        if bot:Team() == TEAM_SURVIVORS then
-            local targetClass = controller.Target:GetZombieClass()
+    if IsValid(controller.Target) then
+        local aimPoint = ZSB.Util:GetCombatAimPoint(bot, controller.Target)
 
-            if targetClass >= 2 and targetClass < 5 or targetClass < 2 or targetClass == 5 or targetClass >= 10 then
-                if not controller.Target:Crouching() then
-                    bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - controller.Target:GetViewOffsetDucked() - bot:GetShootPos()):Angle()))
-                else
-                    bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - bot:GetShootPos()):Angle()))
-                end
-            elseif targetClass >= 6 then
-                if targetClass < 10 then
-                    bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - controller.Target:GetViewOffsetDucked() - controller.Target:GetViewOffsetDucked() - bot:GetShootPos()):Angle()))
-                else
-                    bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - controller.Target:GetViewOffsetDucked() - bot:GetShootPos()):Angle()))
+        if aimPoint and not bot:IsFrozen() then
+            local targetLerp = lerp
+
+            if bot:Team() == TEAM_SURVIVORS then
+                local distanceSqr = bot:GetShootPos():DistToSqr(aimPoint)
+
+                if distanceSqr <= 110 * 110 then
+                    targetLerp = math.max(targetLerp, FrameTime() * 30)
+                elseif distanceSqr <= 220 * 220 then
+                    targetLerp = math.max(targetLerp, FrameTime() * 22)
                 end
             end
-        elseif not bot:IsFrozen() then
-            bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:EyePos() - bot:GetShootPos()):Angle()))
-        end
 
-        return
-    end
-
-    if IsValid(controller.Target) and not controller.Target:IsPlayer() then
-        if not bot:IsFrozen() then
-            bot:SetEyeAngles(LerpAngle(lerp, bot:EyeAngles(), (controller.Target:WorldSpaceCenter() - bot:GetShootPos()):Angle()))
+            bot:SetEyeAngles(LerpAngle(targetLerp, bot:EyeAngles(), (aimPoint - bot:GetShootPos()):Angle()))
         end
 
         return
