@@ -1,6 +1,10 @@
 -- Cache cvars
 local leadbot_cs = GetConVar("leadbot_cs")
 
+local HELP_DAMAGE_THRESHOLD = 18
+local PAIN_DAMAGE_THRESHOLD = 8
+local LOW_HEALTH_THRESHOLD = 35
+
 local function IsValidAggressor(ent)
     return IsValid(ent) and (ent:IsPlayer() or ent:IsNPC())
 end
@@ -62,6 +66,45 @@ local function OnZombieBotHurt(aggressor, victimBot)
     end
 end
 
+local function CanUseBotVoice(victimBot)
+    return type(LeadBot) == "table" and type(LeadBot.TryTalkToMe) == "function" and IsValid(victimBot) and victimBot:IsLBot()
+end
+
+local function TryPainVoice(victimBot, damage)
+    if not CanUseBotVoice(victimBot) then return end
+    if damage < PAIN_DAMAGE_THRESHOLD then return end
+
+    local chance = damage >= HELP_DAMAGE_THRESHOLD and 55 or 35
+    if ZSB.Util:Odds(chance) then
+        LeadBot.TryTalkToMe(victimBot, "pain")
+    end
+end
+
+local function TryHelpVoice(victimBot, postDamageHealth, damage)
+    if not CanUseBotVoice(victimBot) then return end
+    if victimBot:Team() ~= TEAM_SURVIVORS then return end
+
+    if postDamageHealth <= LOW_HEALTH_THRESHOLD or damage >= HELP_DAMAGE_THRESHOLD then
+        local chance = postDamageHealth <= LOW_HEALTH_THRESHOLD and 75 or 45
+        if ZSB.Util:Odds(chance) then
+            LeadBot.TryTalkToMe(victimBot, "help")
+            return
+        end
+    end
+
+    TryPainVoice(victimBot, damage)
+end
+
+local function TryDownedVoice(victimBot, hp, damage, dmgInfo)
+    if not CanUseBotVoice(victimBot) then return end
+    if victimBot:Team() ~= TEAM_SURVIVORS then return end
+    if hp > damage then return end
+    if dmgInfo:IsExplosionDamage() or dmgInfo:IsFallDamage() then return end
+    if hp - damage <= -35 then return end
+
+    LeadBot.TryTalkToMe(victimBot, "downed")
+end
+
 function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
     if not IsValid(victimBot) then return end
 
@@ -71,6 +114,9 @@ function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
         -- Preserve context for PostPlayerDeath so revive handling can distinguish
         -- a zombie second wind from other respawn flows.
         victimBot.LeadBot_WasZombieBeforeDeath = victimBot:Team() == TEAM_ZOMBIE
+        TryDownedVoice(victimBot, hp, damage, dmgInfo)
+    else
+        TryHelpVoice(victimBot, hp - damage, damage)
     end
 
     if not IsValidAggressor(aggressor) then return end

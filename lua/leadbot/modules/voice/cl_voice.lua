@@ -8,77 +8,44 @@ local oldIsSpeaking = meta.IsSpeaking
 local function StopBotVoice(ply, token)
     if not IsValid(ply) then return end
     if token ~= nil and ply._LeadBotVoiceToken ~= token then return end
+    if not ply.LeadBotIsSpeaking then return end
 
-    local station = ply.ChattingS
-    ply.ChattingS = nil
+    ply.LeadBotIsSpeaking = false
+    ply.LeadBotVoiceEndTime = 0
 
     hook.Call("PlayerEndVoice", gmod.GetGamemode(), ply)
-
-    if IsValid(station) then
-        station:Stop()
-    end
 end
 
-local function StartBotVoice(ply, soundPath)
+local function StartBotVoice(ply, duration)
     if not IsValid(ply) or not ply:IsPlayer() or not ply:IsBot() then return end
-    if IsValid(ply.ChattingS) and ply.ChattingS:GetState() == GMOD_CHANNEL_PLAYING then return end
-    if not isstring(soundPath) or soundPath == "" then return end
 
     ply._LeadBotVoiceToken = (ply._LeadBotVoiceToken or 0) + 1
+
     local token = ply._LeadBotVoiceToken
+    local wasSpeaking = ply.LeadBotIsSpeaking == true
 
-    sound.PlayFile("sound/" .. soundPath, "mono", function(station, errCode, errName)
-        if not IsValid(ply) then
-            if IsValid(station) then
-                station:Stop()
-            end
-            return
-        end
+    ply.LeadBotIsSpeaking = true
+    ply.LeadBotVoiceEndTime = CurTime() + math.max(duration or 0, 0)
 
-        if token ~= ply._LeadBotVoiceToken then
-            if IsValid(station) then
-                station:Stop()
-            end
-            return
-        end
-
-        if not IsValid(station) then
-            ply.ChattingS = nil
-            print(string.format("[LeadBot Voice] Failed to play '%s' for %s (error %s: %s)", soundPath, tostring(ply), tostring(errCode), tostring(errName)))
-            return
-        end
-
-        ply.ChattingS = station
-
-        station:SetPlaybackRate(math.random(95, 105) * 0.01)
-        station:Play()
-
+    if not wasSpeaking then
         hook.Call("PlayerStartVoice", gmod.GetGamemode(), ply)
+    end
 
-        local duration = station:GetLength()
-
-        if not isnumber(duration) or duration <= 0 then
-            duration = SoundDuration(soundPath) or 0
-        end
-
-        if duration > 0 then
-            timer.Simple(duration, function()
-                StopBotVoice(ply, token)
-            end)
-        end
+    timer.Simple(math.max(duration or 0, 0.25), function()
+        StopBotVoice(ply, token)
     end)
 end
 
 net.Receive("botVoiceStart", function()
     local ply = net.ReadEntity()
-    local soundPath = net.ReadString()
+    local duration = net.ReadFloat()
 
-    StartBotVoice(ply, soundPath)
+    StartBotVoice(ply, duration)
 end)
 
 hook.Add("PostPlayerDraw", "LeadBot_VoiceIcon", function(ply)
     if not IsValid(ply) or not ply:IsPlayer() or not ply:IsBot() then return end
-    if not IsValid(ply.ChattingS) then return end
+    if not ply.LeadBotIsSpeaking then return end
     if not SHOW_VOICE_ICONS or not SHOW_VOICE_ICONS:GetBool() then return end
 
     local ang = EyeAngles()
@@ -103,8 +70,8 @@ function meta:VoiceVolume()
         return 0
     end
 
-    if IsValid(self.ChattingS) then
-        return (self.ChattingS:GetLevel() or 0) * 0.6
+    if self.LeadBotIsSpeaking then
+        return 1
     end
 
     return 0
@@ -119,5 +86,5 @@ function meta:IsSpeaking()
         return false
     end
 
-    return IsValid(self.ChattingS)
+    return self.LeadBotIsSpeaking == true
 end

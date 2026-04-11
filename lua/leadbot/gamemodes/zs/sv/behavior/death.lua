@@ -9,6 +9,10 @@ local NORMAL_ZOMBIE_CLASS = 1
 local TORSO_ZOMBIE_CLASS = 9
 local TORSO_HEIGHT_FIX = Vector(0, 0, -20)
 
+local function GetSecondWindTimerName(bot)
+    return bot:UniqueID() .. "secondwind"
+end
+
 local function PreserveTorsoRespawn(victimBot)
     if not IsValid(victimBot) or victimBot:Team() ~= TEAM_ZOMBIE then return end
     if victimBot:GetZombieClass() ~= TORSO_ZOMBIE_CLASS then return end
@@ -34,32 +38,62 @@ local function ApplyTorsoHeightFix(victimBot)
     victimBot:SetPos(victimBot:GetPos() + TORSO_HEIGHT_FIX)
 end
 
-function LeadBot.Death(victimBot, aggressor)
-    if IsValid(victimBot) and victimBot:IsBot() and victimBot:Team() == TEAM_ZOMBIE then
-        PreserveTorsoRespawn(victimBot)
-        ResetZombieClassIfNeeded(victimBot)
-        ApplyTorsoHeightFix(victimBot)
+local function TryTauntOnKill(victim, aggressor)
+    if not IsValid(victim) or not victim:IsPlayer() then return end
+    if not IsValid(aggressor) or not aggressor:IsPlayer() or not aggressor:IsLBot() then return end
+    if aggressor == victim or aggressor:Team() == victim:Team() then return end
+    if type(LeadBot) ~= "table" or type(LeadBot.TryTalkToMe) ~= "function" then return end
+
+    timer.Simple(0, function()
+        if not IsValid(aggressor) then return end
+
+        if IsValid(victim)
+        and victim:Team() == TEAM_ZOMBIE
+        and timer.Exists(GetSecondWindTimerName(victim)) then
+            return
+        end
+
+        if victim:Team() == TEAM_SURVIVORS then
+            if ZSB.Util:Odds(70) then
+                LeadBot.TryTalkToMe(aggressor, "taunt")
+            end
+            return
+        end
+
+        if ZSB.Util:Odds(50) then
+            LeadBot.TryTalkToMe(aggressor, "taunt")
+        end
+    end)
+end
+
+function LeadBot.Death(victim, aggressor)
+    if IsValid(victim) and victim:IsBot() and victim:Team() == TEAM_ZOMBIE then
+        PreserveTorsoRespawn(victim)
+        ResetZombieClassIfNeeded(victim)
+        ApplyTorsoHeightFix(victim)
 
         timer.Simple(2.1, function()
-            if IsValid(victimBot) then
-                ApplyTorsoHeightFix(victimBot)
+            if IsValid(victim) then
+                ApplyTorsoHeightFix(victim)
             end
         end)
 
         timer.Simple(2.6, function()
-            if IsValid(victimBot) then
-                ApplyTorsoHeightFix(victimBot)
+            if IsValid(victim) then
+                ApplyTorsoHeightFix(victim)
             end
         end)
     end
 
-    if aggressor ~= victimBot and IsValid(aggressor) and IsValid(victimBot) then
+    if aggressor ~= victim and IsValid(aggressor) and IsValid(victim) then
+        TryTauntOnKill(victim, aggressor)
+
         if leadbot_hregen:GetBool()
         and aggressor:IsPlayer()
         and aggressor:IsBot()
         and aggressor:Team() == TEAM_SURVIVORS
-        and victimBot:Team() == TEAM_ZOMBIE then
-            local class = victimBot:GetZombieClass()
+        and victim:Team() == TEAM_ZOMBIE then
+            local class = victim:GetZombieClass()
             local zombieClass = ZombieClasses and ZombieClasses[class]
 
             if zombieClass and zombieClass.Health then
@@ -70,7 +104,7 @@ function LeadBot.Death(victimBot, aggressor)
         if leadbot_cs:GetBool()
         and aggressor:IsPlayer()
         and aggressor:Team() == TEAM_ZOMBIE then
-            victimBot:EmitSound("npc/fast_zombie/fz_scream1.wav", CHAN_REPLACE)
+            victim:EmitSound("npc/fast_zombie/fz_scream1.wav", CHAN_REPLACE)
         end
     end
 end

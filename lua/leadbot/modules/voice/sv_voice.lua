@@ -4,6 +4,30 @@ LeadBot.VoicePreset = LeadBot.VoicePreset or {}
 LeadBot.VoiceModels = LeadBot.VoiceModels or {}
 
 local convar
+local VOICE_CHANNEL = CHAN_VOICE or CHAN_AUTO
+local VOICE_SOUND_LEVEL = 95
+local VOICE_VOLUME = 1
+local VOICE_DSP = 1
+local BOT_VOICE_MAX_DISTANCE = 700
+local BOT_VOICE_MAX_DISTANCE_SQR = BOT_VOICE_MAX_DISTANCE * BOT_VOICE_MAX_DISTANCE
+
+local VOICE_TYPE_FALLBACKS = {
+    join = {"join"},
+    taunt = {"taunt"},
+    help = {"help", "pain"},
+    downed = {"downed", "help", "pain"},
+    pain = {"pain", "help"}
+}
+
+local VOICE_TYPE_COOLDOWNS = {
+    join = 0,
+    taunt = 2.75,
+    help = 6,
+    downed = 0.75,
+    pain = 2.25
+}
+
+local GLOBAL_VOICE_COOLDOWN = 0.85
 
 local function GetAvailableVoicePresetNames()
     local names = table.GetKeys(LeadBot.VoicePreset)
@@ -15,10 +39,18 @@ local function BuildVoicePresetHelpText()
     local names = GetAvailableVoicePresetNames()
 
     if #names == 0 then
-        return "Voice Preset.\nOptions are:\n- \"random\"\n- \"\""
+        return [[Voice Preset.
+Options are:
+- "random"
+- ""]]
     end
 
-    return "Voice Preset.\nOptions are:\n- \"random\"\n- \"" .. table.concat(names, "\"\n- \"") .. "\"\n- \"\""
+    return [[Voice Preset.
+Options are:
+- "random"
+- "]] .. table.concat(names, [["
+- "]]) .. [["
+- ""]]
 end
 
 local function GetBotVoiceKey(ply)
@@ -59,13 +91,37 @@ local function GetBotVoiceKey(ply)
     return ply.LeadBot_Voice
 end
 
+local function CanListenerReceiveBotVoice(listener, talker)
+    if not IsValid(listener) or not listener:IsPlayer() then return false end
+    if not IsValid(talker) or not talker:IsPlayer() then return false end
+
+    local canHear = hook.Call("PlayerCanHearPlayersVoice", gmod.GetGamemode(), listener, talker)
+    if not canHear then
+        return false
+    end
+
+    local listenerPos = listener:GetPos()
+    local talkerPos = talker:GetPos()
+    if not listenerPos or not talkerPos then
+        return false
+    end
+
+    local maxDistanceSqr = BOT_VOICE_MAX_DISTANCE_SQR or (700 * 700)
+    local distanceSqr = listenerPos:DistToSqr(talkerPos)
+
+    if not distanceSqr then
+        return false
+    end
+
+    return distanceSqr <= maxDistanceSqr
+end
+
+
 local function GetVoiceListeners(talker)
     local listeners = {}
 
     for _, listener in ipairs(player.GetAll()) do
-        local canHear = hook.Call("PlayerCanHearPlayersVoice", gmod.GetGamemode(), listener, talker)
-
-        if canHear then
+        if CanListenerReceiveBotVoice(listener, talker) then
             listeners[#listeners + 1] = listener
         end
     end
@@ -73,8 +129,41 @@ local function GetVoiceListeners(talker)
     return listeners
 end
 
-local function GetVoiceLine(voiceKey, voiceType)
+local function BuildVoiceRecipientFilter(listeners)
+    local filter = RecipientFilter()
+
+    for _, listener in ipairs(listeners) do
+        if IsValid(listener) then
+            filter:AddPlayer(listener)
+        end
+    end
+
+    return filter
+end
+
+local function ResolveVoiceType(voiceKey, voiceType)
     if not voiceType then
+        return nil
+    end
+
+    local preset = LeadBot.VoicePreset[voiceKey]
+    if not preset then
+        return nil
+    end
+
+    for _, candidateType in ipairs(VOICE_TYPE_FALLBACKS[voiceType] or {voiceType}) do
+        local lines = preset[candidateType]
+
+        if istable(lines) and #lines > 0 then
+            return candidateType
+        end
+    end
+
+    return nil
+end
+
+local function GetVoiceLine(voiceKey, resolvedType)
+    if not resolvedType then
         return ""
     end
 
@@ -83,35 +172,84 @@ local function GetVoiceLine(voiceKey, voiceType)
         return ""
     end
 
-    local lines = preset[voiceType]
+    local lines = preset[resolvedType]
     if not istable(lines) or #lines == 0 then
         return ""
     end
 
-    return table.Random(lines) or ""
+    return string.Trim(table.Random(lines) or "")
+end
+
+local function CanPlayVoiceType(ply, resolvedType)
+    local curTime = CurTime()
+
+    if (ply.LeadBotNextVoiceTime or 0) > curTime then
+        return false
+    end
+
+    ply.LeadBotNextVoiceByType = ply.LeadBotNextVoiceByType or {}
+
+    return (ply.LeadBotNextVoiceByType[resolvedType] or 0) <= curTime
+end
+
+local function MarkVoiceCooldowns(ply, resolvedType, duration)
+    local curTime = CurTime()
+    local lockout = math.max(duration or 0, GLOBAL_VOICE_COOLDOWN)
+
+    ply.LeadBotNextVoiceTime = curTime + lockout
+    ply.LeadBotNextVoiceByType = ply.LeadBotNextVoiceByType or {}
+    ply.LeadBotNextVoiceByType[resolvedType] = curTime + math.max(lockout, VOICE_TYPE_COOLDOWNS[resolvedType] or 0)
+end
+
+local function EmitVoiceState(listeners, ply, duration)
+    net.Start("botVoiceStart")
+        net.WriteEntity(ply)
+        net.WriteFloat(math.max(duration or 0, 0))
+    net.Send(listeners)
 end
 
 function LeadBot.TalkToMe(ply, voiceType)
     if not IsValid(ply) or not ply.IsLBot or not ply:IsLBot(true) then
-        return
+        return false
     end
 
     local voiceKey = GetBotVoiceKey(ply)
     if not voiceKey then
-        return
+        return false
+    end
+
+    local resolvedType = ResolveVoiceType(voiceKey, voiceType)
+    if not resolvedType then
+        return false
+    end
+
+    if not CanPlayVoiceType(ply, resolvedType) then
+        return false
     end
 
     local listeners = GetVoiceListeners(ply)
     if #listeners == 0 then
-        return
+        return false
     end
 
-    local soundPath = GetVoiceLine(voiceKey, voiceType)
+    local soundPath = GetVoiceLine(voiceKey, resolvedType)
+    if soundPath == "" then
+        return false
+    end
 
-    net.Start("botVoiceStart")
-        net.WriteEntity(ply)
-        net.WriteString(soundPath)
-    net.Send(listeners)
+    local filter = BuildVoiceRecipientFilter(listeners)
+    local pitch = math.random(95, 105)
+    local duration = SoundDuration(soundPath) or 0
+
+    MarkVoiceCooldowns(ply, resolvedType, duration)
+    ply:EmitSound(soundPath, VOICE_SOUND_LEVEL, pitch, VOICE_VOLUME, VOICE_CHANNEL, 0, VOICE_DSP, filter)
+    EmitVoiceState(listeners, ply, duration)
+
+    return true
+end
+
+function LeadBot.TryTalkToMe(ply, voiceType)
+    return LeadBot.TalkToMe(ply, voiceType)
 end
 
 -- Valve Games
@@ -257,6 +395,36 @@ LeadBot.VoiceModels["LackEatTra"] = "female"
 LeadBot.VoiceModels["Moqueefa"] = "female"
 LeadBot.VoiceModels["Latisha"] = "female"
 LeadBot.VoiceModels["Lackee"] = "female"
+
+local function EnsureVoiceAlias(voiceKey, targetType, sourceType)
+    local preset = LeadBot.VoicePreset[voiceKey]
+    if not preset then
+        return
+    end
+
+    local target = preset[targetType]
+    if istable(target) and #target > 0 then
+        return
+    end
+
+    local source = preset[sourceType]
+    if istable(source) and #source > 0 then
+        preset[targetType] = table.Copy(source)
+    end
+end
+
+local function FinalizeVoicePresets()
+    local presetNames = table.GetKeys(LeadBot.VoicePreset)
+
+    for _, voiceKey in ipairs(presetNames) do
+        EnsureVoiceAlias(voiceKey, "help", "pain")
+        EnsureVoiceAlias(voiceKey, "downed", "help")
+        EnsureVoiceAlias(voiceKey, "downed", "pain")
+        EnsureVoiceAlias(voiceKey, "pain", "help")
+    end
+end
+
+FinalizeVoicePresets()
 
 convar = CreateConVar(
     "leadbot_voice",
