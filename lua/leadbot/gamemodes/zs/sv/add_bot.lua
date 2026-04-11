@@ -202,9 +202,37 @@ local function SplitCSV(str)
     return values
 end
 
+local DISALLOWED_SURVIVOR_MODELS = {
+    zombie = true,
+    zombiefast = true,
+    fastzombie = true,
+    zombie_fast = true,
+    zombine = true
+}
+
 local function NormalizeModelName(modelName)
     if not modelName or modelName == "" then return nil end
     return player_manager.TranslateToPlayerModelName(modelName) or modelName
+end
+
+local function GetModelSignature(modelName)
+    modelName = NormalizeModelName(modelName)
+    if not modelName then return nil end
+
+    local pathParts = string.Split(string.lower(modelName), "/")
+    modelName = pathParts[#pathParts] or modelName
+
+    modelName = string.StripExtension(modelName)
+    modelName = string.Replace(modelName, "-", "_")
+
+    return modelName
+end
+
+local function IsRestrictedSurvivorModel(modelName)
+    local signature = GetModelSignature(modelName)
+    if not signature then return false end
+
+    return DISALLOWED_SURVIVOR_MODELS[signature] or false
 end
 
 local function GetConfiguredModelPool()
@@ -213,7 +241,7 @@ local function GetConfiguredModelPool()
 
     for _, value in ipairs(SplitCSV(leadbot_models and leadbot_models:GetString() or "")) do
         local modelName = NormalizeModelName(value)
-        if modelName and not seen[modelName] then
+        if modelName and not IsRestrictedSurvivorModel(modelName) and not seen[modelName] then
             seen[modelName] = true
             models[#models + 1] = modelName
         end
@@ -228,7 +256,7 @@ local function GetDefaultModelPool()
 
     for _, value in pairs(player_manager.AllValidModels()) do
         local modelName = NormalizeModelName(value)
-        if modelName and not seen[modelName] then
+        if modelName and not IsRestrictedSurvivorModel(modelName) and not seen[modelName] then
             seen[modelName] = true
             models[#models + 1] = modelName
         end
@@ -289,7 +317,12 @@ local function GetRandomModelName(preferUnused)
         pool = GetDefaultModelPool()
     end
 
-    return PickModelFromPool(pool, preferUnused) or "kleiner"
+    local modelName = PickModelFromPool(pool, preferUnused)
+    if IsRestrictedSurvivorModel(modelName) then
+        return "kleiner"
+    end
+
+    return modelName or "kleiner"
 end
 
 local function FormatBotName(modelName)
