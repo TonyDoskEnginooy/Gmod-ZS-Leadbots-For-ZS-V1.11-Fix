@@ -80,7 +80,7 @@ end
 function SC.ForgetInvalidTarget(bot, controller)
     if not IsValid(controller.Target)
     or controller.ForgetTarget < CurTime()
-    or controller.Target:Health() < 1
+    or (controller.Target:Health() < 1 and not (SC.IsFragileMapBreakable and SC.IsFragileMapBreakable(controller.Target)))
     or not ZSB.Util:CanPerceiveTarget(bot, controller.Target) then
         controller.Target = nil
     end

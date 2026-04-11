@@ -9,6 +9,22 @@ end
 
 SC._ZombieTargetingLoaded = true
 
+function SC.IsFragileMapBreakable(ent)
+    if not IsValid(ent) or ent:GetClass() ~= "func_breakable" then
+        return false
+    end
+
+    if ZSB.Map:GetValue("zombieBreakCheck", true) then
+        return false
+    end
+
+    if not ent.GetMaxHealth then
+        return true
+    end
+
+    return ent:GetMaxHealth() <= 1
+end
+
 local function IsEnemyCandidate(bot, ent)
     if not IsValid(ent) or ent == bot then return false end
 
@@ -159,7 +175,11 @@ function SC.IsSimpleObstacleTarget(_, ent)
     local class = ent:GetClass()
 
     if class == "func_breakable" or class == "func_physbox" then
-        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+        if ent.GetMaxHealth and ent:GetMaxHealth() > 1 then
+            return true
+        end
+
+        return class == "func_breakable" and SC.IsFragileMapBreakable(ent)
     end
 
     if class == "prop_physics" then
