@@ -53,6 +53,7 @@ function SC.EnsureControllerState(controller)
     controller.ObstacleTargetRetryUntil = controller.ObstacleTargetRetryUntil or 0
     controller.ActiveObstacleTarget = controller.ActiveObstacleTarget or nil
     controller.LastObstacleTarget = controller.LastObstacleTarget or nil
+    controller.RecentCloseThreatUntil = controller.RecentCloseThreatUntil or 0
 end
 
 function SC.SetRoamState(bot)
@@ -146,6 +147,59 @@ function SC.GetDistanceScore(distanceSqr)
     end
 
     return -80
+end
+
+function SC.IsZombiePlayerEnemy(bot, target)
+    return IsValid(bot)
+        and bot:Team() == TEAM_SURVIVORS
+        and IsValid(target)
+        and target:IsPlayer()
+        and target:Alive()
+        and target:Team() == TEAM_ZOMBIE
+        and not target:HasGodMode()
+        and ZSB.Util:CanPerceiveTarget(bot, target)
+end
+
+function SC.SetRecentCloseThreat(controller, target, duration)
+    if not IsValid(controller) then
+        return
+    end
+
+    if not IsValid(target) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return
+    end
+
+    controller.RecentCloseThreat = target
+    controller.RecentCloseThreatUntil = CurTime() + math.max(duration or 0, 0)
+end
+
+function SC.GetRecentCloseThreat(controller)
+    if not IsValid(controller) then
+        return nil
+    end
+
+    if (controller.RecentCloseThreatUntil or 0) < CurTime() then
+        controller.RecentCloseThreat = nil
+        return nil
+    end
+
+    local target = controller.RecentCloseThreat
+
+    if not IsValid(target) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return nil
+    end
+
+    if target:IsPlayer() and (not target:Alive() or target:Health() < 1) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return nil
+    end
+
+    return target
 end
 
 function SC.IsIgnoredPropModel(model)

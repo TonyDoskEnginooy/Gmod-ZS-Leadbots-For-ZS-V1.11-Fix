@@ -230,8 +230,8 @@ local function GetEntityScanPoint(ent, referencePos)
 end
 
 local BOT_SCAN_RANGE = Vector(1500, 1500, 1500)
-local BOT_SCAN_DELAY = 0.5
-local NEAR_DISTANCE = 90
+local BOT_SCAN_DELAY = 0.2
+local NEAR_DISTANCE = 140
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
 
 local nextBotEntsScan = {

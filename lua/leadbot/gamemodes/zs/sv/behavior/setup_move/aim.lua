@@ -83,10 +83,16 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLoo
 
             if bot:Team() == TEAM_SURVIVORS then
                 local distanceSqr = bot:GetShootPos():DistToSqr(aimPoint)
+                local recentThreatActive = controller.RecentCloseThreat == controller.Target
+                    and (controller.RecentCloseThreatUntil or 0) > CurTime()
 
-                if distanceSqr <= 110 * 110 then
+                if recentThreatActive then
+                    targetLerp = math.max(targetLerp, FrameTime() * 60)
+                elseif distanceSqr <= 90 * 90 then
+                    targetLerp = math.max(targetLerp, FrameTime() * 42)
+                elseif distanceSqr <= 180 * 180 then
                     targetLerp = math.max(targetLerp, FrameTime() * 30)
-                elseif distanceSqr <= 220 * 220 then
+                elseif distanceSqr <= 260 * 260 then
                     targetLerp = math.max(targetLerp, FrameTime() * 22)
                 end
             end

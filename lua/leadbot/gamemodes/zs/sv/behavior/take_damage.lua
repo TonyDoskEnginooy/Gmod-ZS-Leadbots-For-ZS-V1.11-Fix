@@ -4,6 +4,10 @@ local leadbot_cs = GetConVar("leadbot_cs")
 local HELP_DAMAGE_THRESHOLD = 18
 local PAIN_DAMAGE_THRESHOLD = 8
 local LOW_HEALTH_THRESHOLD = 35
+local CLOSE_THREAT_DISTANCE_SQR = 225 * 225
+local CLOSE_THREAT_STICK_TIME = 1.1
+
+local SC = ZSB and ZSB.StartCommand
 
 local function IsValidAggressor(ent)
     return IsValid(ent) and (ent:IsPlayer() or ent:IsNPC())
@@ -23,6 +27,15 @@ local function GetController(victimBot)
     return controller
 end
 
+local function MarkRecentSurvivorThreat(victimBot, controller, aggressor)
+    if type(SC) ~= "table" then return end
+    if not isfunction(SC.IsZombiePlayerEnemy) or not isfunction(SC.SetRecentCloseThreat) then return end
+    if not SC.IsZombiePlayerEnemy(victimBot, aggressor) then return end
+    if victimBot:GetPos():DistToSqr(aggressor:GetPos()) > CLOSE_THREAT_DISTANCE_SQR then return end
+
+    SC.SetRecentCloseThreat(controller, aggressor, CLOSE_THREAT_STICK_TIME)
+end
+
 local function OnSurvivorBotHurt(aggressor, victimBot)
     local controller = victimBot:GetController()
     if not controller then return end
@@ -31,6 +44,12 @@ local function OnSurvivorBotHurt(aggressor, victimBot)
     and ZSB.Util:CanPerceiveTarget(victimBot, aggressor) then
         controller.Target = aggressor
         controller.ForgetTarget = CurTime() + 4
+        controller.PosGen = aggressor:GetPos()
+        controller.LastSegmented = CurTime() + 0.1
+        controller.LookAt = (aggressor:WorldSpaceCenter() - victimBot:GetShootPos()):Angle()
+        controller.LookAtTime = CurTime() + 0.2
+
+        MarkRecentSurvivorThreat(victimBot, controller, aggressor)
     end
 end
 

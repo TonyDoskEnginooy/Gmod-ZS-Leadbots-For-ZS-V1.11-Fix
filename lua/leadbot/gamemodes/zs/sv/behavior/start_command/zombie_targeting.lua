@@ -9,6 +9,10 @@ end
 
 SC._ZombieTargetingLoaded = true
 
+local CLOSE_THREAT_DISTANCE_SQR = 220 * 220
+local FACING_THREAT_DISTANCE_SQR = 320 * 320
+local RECENT_THREAT_DISTANCE_SQR = 260 * 260
+
 function SC.IsFragileMapBreakable(ent)
     if not IsValid(ent) or ent:GetClass() ~= "func_breakable" then
         return false
@@ -148,8 +152,87 @@ local function ConsiderBestTarget(bot, controller, state, list, sourceTag, score
     end
 end
 
+local function ScoreEmergencySurvivorThreat(bot, controller, target, sourceTag)
+    if not SC.IsZombiePlayerEnemy(bot, target) or ShouldAvoidChemZombie(bot, target) then
+        return nil
+    end
+
+    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
+    local recentThreat = SC.GetRecentCloseThreat(controller)
+    local maxDistanceSqr = CLOSE_THREAT_DISTANCE_SQR
+
+    if sourceTag == "panic_facing_player" then
+        maxDistanceSqr = FACING_THREAT_DISTANCE_SQR
+    elseif target == recentThreat then
+        maxDistanceSqr = RECENT_THREAT_DISTANCE_SQR
+    end
+
+    if distanceSqr > maxDistanceSqr then
+        return nil
+    end
+
+    local score = 4200 - (distanceSqr * 0.012)
+
+    if sourceTag == "panic_facing_player" then
+        score = score + 850
+    end
+
+    if target == recentThreat then
+        score = score + 1700
+    end
+
+    if distanceSqr <= 110 * 110 then
+        score = score + 1300
+    elseif distanceSqr <= 170 * 170 then
+        score = score + 800
+    else
+        score = score + 250
+    end
+
+    if target == controller.Target then
+        score = score + 120
+    end
+
+    return score
+end
+
+function SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
+    if bot:Team() ~= TEAM_SURVIVORS then
+        return nil
+    end
+
+    local state = {
+        bestScore = -math.huge,
+        bestTarget = nil
+    }
+
+    local recentThreat = SC.GetRecentCloseThreat(controller)
+
+    if IsValid(recentThreat) then
+        local score = ScoreEmergencySurvivorThreat(bot, controller, recentThreat, "panic_recent")
+
+        if score and score > state.bestScore then
+            state.bestScore = score
+            state.bestTarget = recentThreat
+        end
+    end
+
+    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "panic_facing_player", ScoreEmergencySurvivorThreat)
+    ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "panic_area_player", ScoreEmergencySurvivorThreat)
+
+    return state.bestTarget
+end
+
 function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     RefreshTargetLoad()
+
+    local emergencyTarget = SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
+
+    if IsValid(emergencyTarget) then
+        controller.Target = emergencyTarget
+        controller.ForgetTarget = CurTime() + 1.1
+        return
+    end
 
     local state = {
         bestScore = -math.huge,
