@@ -104,7 +104,7 @@ local function GetRecoverySpawn(ply)
         local fixedPos = ZSB.Map:GetValue(spawnGetterName)
 
         if isvector(fixedPos) then
-            return fixedPos
+            return fixedPos()
         end
     end
 
