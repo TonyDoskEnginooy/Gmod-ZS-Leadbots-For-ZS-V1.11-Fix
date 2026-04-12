@@ -34,7 +34,7 @@ CreateConVar("leadbot_strategy", "1", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Enables th
 CreateConVar("leadbot_names", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot names, separated by commas.")
 CreateConVar("leadbot_models", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot models, separated by commas.")
 CreateConVar("leadbot_name_prefix", "", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Bot name prefix")
-CreateConVar("leadbot_minzombies", "1", {FCVAR_ARCHIVE}, "What percentage of players become zombies at the beginning.", 0, 100)
+CreateConVar("leadbot_minzombies", "5", {FCVAR_ARCHIVE}, "What percentage of players become zombies at the beginning.", 0, 100)
 
 local leadbot_zchance = CreateConVar(
     "leadbot_zchance",
