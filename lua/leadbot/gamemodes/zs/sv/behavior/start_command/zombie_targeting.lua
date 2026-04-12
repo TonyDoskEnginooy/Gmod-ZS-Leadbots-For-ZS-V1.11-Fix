@@ -112,6 +112,10 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
 end
 
 local function ScoreZombieObstacleTarget(bot, controller, target)
+    if not ZSB.Map:GetValue("zombiePropCheck", false) then
+        return false
+    end
+
     if not SC.IsSimpleObstacleTarget(bot, target) then
         return nil
     end
