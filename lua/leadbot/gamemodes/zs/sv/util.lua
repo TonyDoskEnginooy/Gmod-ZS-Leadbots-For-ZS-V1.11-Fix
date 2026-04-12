@@ -133,13 +133,15 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
         return nil
     end
 
+    local shootPos = attacker:GetShootPos()
+
     if not target:IsPlayer() then
-        local leadTime = math.Clamp(attacker:GetShootPos():Distance(bodyCenter) / 2600, 0.015, 0.09)
+        local leadTime = math.Clamp(shootPos:Distance(bodyCenter) / 2600, 0.015, 0.09)
         return bodyCenter + target:GetVelocity() * leadTime
     end
 
     local aimPoint = bodyCenter
-    local distanceSqr = attacker:GetShootPos():DistToSqr(bodyCenter)
+    local distanceSqr = shootPos:DistToSqr(bodyCenter)
 
     if target:Crouching() then
         aimPoint = aimPoint - Vector(0, 0, 6)
@@ -158,10 +160,11 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
         aimPoint = target:EyePos()
     end
 
-    local leadTime = math.Clamp(attacker:GetShootPos():Distance(aimPoint) / 3000, 0.01, 0.075)
+    local leadTime = math.Clamp(shootPos:Distance(aimPoint) / 3000, 0.01, 0.075)
 
     return aimPoint + target:GetVelocity() * leadTime
 end
+
 
 -- ----------------------------------------------
 
@@ -233,7 +236,11 @@ local BOT_SCAN_RANGE = Vector(1500, 1500, 1500)
 local BOT_SCAN_DELAY = 0.2
 local NEAR_DISTANCE = 140
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
+local FACING_DOT_THRESHOLD = 0.55
 
+local entsFindInBox = ents.FindInBox
+local ipairs = ipairs
+local isvector = isvector
 local nextBotEntsScan = {
     -- [bot] = { next = time, foundEnts = table }
 }
@@ -252,7 +259,8 @@ function ZSB.Util:FindEnts(bot)
 
     local botPos = bot:GetPos()
     local botEyePos = bot:EyePos()
-    local nearEnts = ents.FindInBox(botPos - BOT_SCAN_RANGE, botPos + BOT_SCAN_RANGE)
+    local botForward = bot:EyeAngles():Forward()
+    local nearEnts = entsFindInBox(botPos - BOT_SCAN_RANGE, botPos + BOT_SCAN_RANGE)
 
     local foundEnts = {
         area = CreateWantedEntBuckets(),
@@ -260,29 +268,43 @@ function ZSB.Util:FindEnts(bot)
         facing = CreateWantedEntBuckets()
     }
 
+    local areaBuckets = foundEnts.area
+    local nearBuckets = foundEnts.near
+    local facingBuckets = foundEnts.facing
+
     for _, ent in ipairs(nearEnts) do
         if IsValid(ent) then
             local isNPC = ent:IsNPC()
             local className = ent:GetClass()
 
             if wantedCmdClasses[className] or isNPC then
+                local shouldScan = true
+
                 if not isNPC and ent:IsPlayer() and not self:CanPerceiveTarget(bot, ent) then
-                    continue
+                    shouldScan = false
                 end
 
-                local entPos = GetEntityScanPoint(ent, botEyePos)
+                if shouldScan then
+                    local entPos = GetEntityScanPoint(ent, botEyePos)
 
-                if isvector(entPos) and bot:VisibleVec(entPos) then
-                    local bucketName = isNPC and "NPCs" or className
+                    if isvector(entPos) and bot:VisibleVec(entPos) then
+                        local bucketName = isNPC and "NPCs" or className
+                        local areaBucket = areaBuckets[bucketName]
+                        local nearBucket = nearBuckets[bucketName]
+                        local facingBucket = facingBuckets[bucketName]
 
-                    table.insert(foundEnts.area[bucketName], ent)
+                        areaBucket[#areaBucket + 1] = ent
 
-                    if self:IsFacingEnt(bot, ent) then
-                        table.insert(foundEnts.facing[bucketName], ent)
-                    end
+                        local toEnt = entPos - botEyePos
+                        toEnt:Normalize()
 
-                    if entPos:DistToSqr(botPos) < NEAR_DISTANCE_SQR then
-                        table.insert(foundEnts.near[bucketName], ent)
+                        if botForward:Dot(toEnt) > FACING_DOT_THRESHOLD then
+                            facingBucket[#facingBucket + 1] = ent
+                        end
+
+                        if entPos:DistToSqr(botPos) < NEAR_DISTANCE_SQR then
+                            nearBucket[#nearBucket + 1] = ent
+                        end
                     end
                 end
             end

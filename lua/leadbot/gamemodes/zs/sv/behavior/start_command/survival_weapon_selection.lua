@@ -177,6 +177,9 @@ local SURVIVOR_LOW_AMMO_THRESHOLDS = {
     rifle = 4
 }
 
+local SURVIVOR_WEAPON_PROFILE_CACHE = {}
+local SURVIVOR_MELEE_CLASS_CACHE = {}
+
 local function GetWeaponPrimaryAmmoName(weapon)
     if not IsValid(weapon) then return nil end
 
@@ -192,15 +195,33 @@ local function GetWeaponPrimaryAmmoName(weapon)
     return nil
 end
 
-local function GuessWeaponRole(className, ammoName)
-    local classLower = string.lower(className or "")
+local function IsMeleeWeaponClass(className)
+    if not isstring(className) then
+        return false
+    end
 
-    if classLower:find("knife", 1, true)
+    local cached = SURVIVOR_MELEE_CLASS_CACHE[className]
+    if cached ~= nil then
+        return cached
+    end
+
+    local classLower = string.lower(className)
+    local isMelee = classLower:find("knife", 1, true)
         or classLower:find("crowbar", 1, true)
         or classLower:find("fists", 1, true)
         or classLower:find("machete", 1, true)
         or classLower:find("melee", 1, true)
-    then
+
+    isMelee = isMelee and true or false
+    SURVIVOR_MELEE_CLASS_CACHE[className] = isMelee
+
+    return isMelee
+end
+
+local function GuessWeaponRole(className, ammoName)
+    local classLower = string.lower(className or "")
+
+    if IsMeleeWeaponClass(className) then
         return "melee"
     end
 
@@ -253,10 +274,18 @@ local function BuildSurvivorWeaponProfile(weapon)
 
     local className = weapon:GetClass()
     local ammoName = GetWeaponPrimaryAmmoName(weapon)
+    local cacheKey = className .. "|" .. tostring(ammoName or "")
+    local cachedProfile = SURVIVOR_WEAPON_PROFILE_CACHE[cacheKey]
+
+    if cachedProfile ~= nil then
+        return cachedProfile or nil
+    end
+
     local override = SURVIVOR_WEAPON_OVERRIDES[className]
     local role = override and override.role or GuessWeaponRole(className, ammoName)
 
     if not role then
+        SURVIVOR_WEAPON_PROFILE_CACHE[cacheKey] = false
         return nil
     end
 
@@ -270,6 +299,8 @@ local function BuildSurvivorWeaponProfile(weapon)
     profile.className = className
     profile.ammoName = ammoName
 
+    SURVIVOR_WEAPON_PROFILE_CACHE[cacheKey] = profile
+
     return profile
 end
 
@@ -278,6 +309,7 @@ local function GetSurvivorThreatState(bot, foundEnts)
     local closeCount = 0
     local pressureCount = 0
     local nearestDistSqr = math.huge
+    local botPos = bot:GetPos()
 
     for _, ent in ipairs((foundEnts and foundEnts.area and foundEnts.area["player"]) or {}) do
         if IsValid(ent)
@@ -285,7 +317,7 @@ local function GetSurvivorThreatState(bot, foundEnts)
             and ent:Team() == TEAM_ZOMBIE
             and not ent:HasGodMode()
         then
-            local distSqr = ent:GetPos():DistToSqr(bot:GetPos())
+            local distSqr = ent:GetPos():DistToSqr(botPos)
 
             if distSqr < nearestDistSqr then
                 nearestDistSqr = distSqr
@@ -333,7 +365,7 @@ local function GetWeaponReserveAmmo(bot, weapon, profile)
     return bot:GetAmmoCount(ammoName)
 end
 
-local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat)
+local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon)
     local clip = math.max(weapon:Clip1(), 0)
     local reserveAmmo = GetWeaponReserveAmmo(bot, weapon, profile)
     local totalAmmo = clip + reserveAmmo
@@ -462,7 +494,7 @@ local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat)
         end
     end
 
-    if weapon == bot:GetActiveWeapon() then
+    if weapon == activeWeapon then
         score = score + 5
     end
 
@@ -485,17 +517,17 @@ local function HasUsableWeaponAmmo(bot, weapon, profile)
     return GetWeaponReserveAmmo(bot, weapon, profile) > 0
 end
 
-local function SelectBestSurvivorFirearm(bot, distanceSqr, foundEnts)
+local function SelectBestSurvivorFirearm(bot, weapons, distanceSqr, foundEnts, activeWeapon)
     local threat = GetSurvivorThreatState(bot, foundEnts)
 
     local bestWeapon
     local bestScore = -math.huge
 
-    for _, weapon in ipairs(bot:GetWeapons()) do
+    for _, weapon in ipairs(weapons) do
         local profile = BuildSurvivorWeaponProfile(weapon)
 
         if profile and not profile.melee and HasUsableWeaponAmmo(bot, weapon, profile) then
-            local score = GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat)
+            local score = GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon)
 
             if not IsValid(bestWeapon) or score > bestScore then
                 bestWeapon = weapon
@@ -514,13 +546,14 @@ end
 
 local function CountNearbyZombies(bot, foundEnts, maxDistSqr)
     local count = 0
+    local botPos = bot:GetPos()
 
     for _, ent in ipairs(foundEnts.area["player"] or {}) do
         if IsValid(ent)
             and ent:Alive()
             and ent:Team() == TEAM_ZOMBIE
             and not ent:HasGodMode()
-            and ent:GetPos():DistToSqr(bot:GetPos()) <= maxDistSqr
+            and ent:GetPos():DistToSqr(botPos) <= maxDistSqr
         then
             count = count + 1
         end
@@ -529,10 +562,10 @@ local function CountNearbyZombies(bot, foundEnts, maxDistSqr)
     return count
 end
 
-local function HasLowAmmoReserves(bot)
+local function HasLowAmmoReserves(bot, weapons)
     local foundFirearm = false
 
-    for _, weapon in ipairs(bot:GetWeapons()) do
+    for _, weapon in ipairs(weapons) do
         local profile = BuildSurvivorWeaponProfile(weapon)
 
         if profile and not profile.melee then
@@ -550,24 +583,30 @@ local function HasLowAmmoReserves(bot)
     return foundFirearm
 end
 
-local function HasWeaponClass(bot, className)
-    return IsValid(bot:GetWeapon(className))
+local function HasWeaponClass(weapons, className)
+    for _, weapon in ipairs(weapons) do
+        if IsValid(weapon) and weapon:GetClass() == className then
+            return true
+        end
+    end
+
+    return false
 end
 
-local function ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+local function ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr, weapons)
     if bot:Team() ~= TEAM_SURVIVORS then return false end
     if not IsValid(controller.Target) or not controller.Target:IsPlayer() then return false end
     if controller.Target:Team() ~= TEAM_ZOMBIE then return false end
-    if not HasWeaponClass(bot, "weapon_zs_swissarmyknife") then return false end
-    if not HasLowAmmoReserves(bot) then return false end
+    if not HasWeaponClass(weapons, "weapon_zs_swissarmyknife") then return false end
+    if not HasLowAmmoReserves(bot, weapons) then return false end
     if bot:Health() < 35 then return false end
     if CountNearbyZombies(bot, foundEnts, 160 * 160) > 1 then return false end
 
     return true
 end
 
-local function HasNoReserveFirearmAmmo(bot)
-    for _, weapon in ipairs(bot:GetWeapons()) do
+local function HasNoReserveFirearmAmmo(bot, weapons)
+    for _, weapon in ipairs(weapons) do
         local profile = BuildSurvivorWeaponProfile(weapon)
 
         if profile and not profile.melee and GetWeaponReserveAmmo(bot, weapon, profile) > 0 then
@@ -578,8 +617,8 @@ local function HasNoReserveFirearmAmmo(bot)
     return true
 end
 
-local function SelectMeleeFallback(bot)
-    if HasWeaponClass(bot, "weapon_zs_swissarmyknife") then
+local function SelectMeleeFallback(bot, weapons)
+    if HasWeaponClass(weapons, "weapon_zs_swissarmyknife") then
         bot:SelectWeapon("weapon_zs_swissarmyknife")
         return true
     end
@@ -587,7 +626,7 @@ local function SelectMeleeFallback(bot)
     local bestWeapon
     local bestPower = -math.huge
 
-    for _, weapon in ipairs(bot:GetWeapons()) do
+    for _, weapon in ipairs(weapons) do
         local profile = BuildSurvivorWeaponProfile(weapon)
 
         if profile and profile.melee and profile.power > bestPower then
@@ -610,28 +649,30 @@ function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
         return
     end
 
+    local weapons = bot:GetWeapons()
+
     if SC.IsSurvivorBreakTarget(bot, controller.Target) then
         controller.ConserveAmmoWithKnife = false
-        SelectMeleeFallback(bot)
+        SelectMeleeFallback(bot, weapons)
         return
     end
 
     local activeWeapon = bot:GetActiveWeapon()
     local clip = IsValid(activeWeapon) and activeWeapon:Clip1() or 0
-    local conserveAmmoWithKnife = ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr)
+    local conserveAmmoWithKnife = ShouldConserveAmmoWithKnife(bot, controller, foundEnts, distanceSqr, weapons)
 
     controller.ConserveAmmoWithKnife = conserveAmmoWithKnife
 
-    if (clip <= 0 and activeWeapon.GetClass and activeWeapon:GetClass() == "weapon_zs_swissarmyknife" and HasNoReserveFirearmAmmo(bot))
+    if (clip <= 0 and activeWeapon.GetClass and activeWeapon:GetClass() == "weapon_zs_swissarmyknife" and HasNoReserveFirearmAmmo(bot, weapons))
         or conserveAmmoWithKnife
     then
-        SelectMeleeFallback(bot)
+        SelectMeleeFallback(bot, weapons)
         return
     end
 
-    if SelectBestSurvivorFirearm(bot, distanceSqr, foundEnts) then
+    if SelectBestSurvivorFirearm(bot, weapons, distanceSqr, foundEnts, activeWeapon) then
         return
     end
 
-    SelectMeleeFallback(bot)
+    SelectMeleeFallback(bot, weapons)
 end

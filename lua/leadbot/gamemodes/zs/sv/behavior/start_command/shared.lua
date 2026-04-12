@@ -3,12 +3,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._SharedLoaded then
-    return
-end
-
-SC._SharedLoaded = true
-
 local leadbot_zcheats = GetConVar("leadbot_zcheats")
 local leadbot_hordes = GetConVar("leadbot_hordes")
 local leadbot_quota = GetConVar("leadbot_quota")

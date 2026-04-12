@@ -18,6 +18,9 @@ function LeadBot.StartCommand(bot, cmd)
     local controller = bot:GetController()
     if not IsValid(controller) then return end
 
+    local now = CurTime()
+    local teamId = bot:Team()
+
     SC.EnsureControllerState(controller)
     SC.KillLonelyHordeBot(bot)
     SC.ForgetInvalidTarget(bot, controller)
@@ -26,8 +29,8 @@ function LeadBot.StartCommand(bot, cmd)
 
     SC.ToggleMovingBrush(bot, foundEnts.near["func_movelinear"])
 
-    if bot:Team() == TEAM_SURVIVORS then
-        SC.SetRoamState(bot)
+    if teamId == TEAM_SURVIVORS then
+        SC.SetRoamState(bot, now)
         SC.AcquireTemperamentTarget(bot, controller, foundEnts)
 
         if not IsValid(controller.Target) then
@@ -35,16 +38,16 @@ function LeadBot.StartCommand(bot, cmd)
         end
 
         if IsValid(controller.Target) then
-            local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
+            local botPos = bot:GetPos()
+            local targetPos = controller.Target:GetPos()
+            local distanceSqr = targetPos:DistToSqr(botPos)
 
             SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
             SC.UpdateGoalFromTarget(bot, controller)
-        elseif not controller.PosGen or controller.LastSegmented < CurTime() then
-            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy())
+        elseif not controller.PosGen or controller.LastSegmented < now then
+            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
         end
-    end
-
-    if bot:Team() == TEAM_ZOMBIE then
+    elseif teamId == TEAM_ZOMBIE then
         SC.ApplyZombieCheats(bot)
         SC.BreakRotatingDoor(bot, foundEnts.near["prop_door_rotating"])
         SC.BreakBreakableSurface(foundEnts.near["func_breakable_surf"])
@@ -53,8 +56,8 @@ function LeadBot.StartCommand(bot, cmd)
         if IsValid(controller.Target) then
             SC.TryThrowNearbyProp(bot, controller, foundEnts)
             SC.UpdateGoalFromTarget(bot, controller)
-        elseif not controller.PosGen or controller.LastSegmented < CurTime() then
-            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy())
+        elseif not controller.PosGen or controller.LastSegmented < now then
+            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
         end
     end
 

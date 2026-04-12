@@ -16,17 +16,17 @@ local function GetSurvivorCampingSpot(strategy)
     return campingSpotList[strategy]
 end
 
-local function SetTimedGoal(controller, pos, minDelay, maxDelay)
+local function SetTimedGoal(controller, pos, minDelay, maxDelay, now)
     if not isvector(pos) then
         return false
     end
 
     controller.PosGen = pos
-    controller.LastSegmented = CurTime() + math.Rand(minDelay, maxDelay)
+    controller.LastSegmented = (now or CurTime()) + math.Rand(minDelay, maxDelay)
     return true
 end
 
-local function GetDistributedZombiePressurePos(bot)
+local function GetDistributedZombiePressurePos(bot, now)
     local zombieList = {}
 
     for _, candidate in ipairs(player.GetAll()) do
@@ -43,12 +43,14 @@ local function GetDistributedZombiePressurePos(bot)
         return nil
     end
 
-    table.sort(zombieList, function(a, b)
-        return a:EntIndex() < b:EntIndex()
-    end)
+    if #zombieList > 1 then
+        table.sort(zombieList, function(a, b)
+            return a:EntIndex() < b:EntIndex()
+        end)
+    end
 
     local seed = bot.LeadBot_PersonalitySeed or bot:EntIndex() or 1
-    local timeBucket = math.floor(CurTime() * 0.65)
+    local timeBucket = math.floor((now or CurTime()) * 0.65)
     local index = ((seed + timeBucket) % #zombieList) + 1
     local target = zombieList[index]
 
@@ -59,39 +61,41 @@ local function GetDistributedZombiePressurePos(bot)
     return target:GetPos()
 end
 
-local function GetSurvivorFallbackPos(bot, controller, strategy)
+local function GetSurvivorFallbackPos(bot, controller, strategy, now)
     if strategy == 2 then
         for _, candidate in RandomPairs(player.GetAll()) do
             if IsValid(candidate) and candidate ~= bot and candidate:Team() == TEAM_SURVIVORS and candidate:Alive() then
-                return candidate:GetPos(), CurTime() + 10
+                return candidate:GetPos(), now + 10
             end
         end
     end
 
     if strategy == 3 then
-        local zombiePos = GetDistributedZombiePressurePos(bot)
+        local zombiePos = GetDistributedZombiePressurePos(bot, now)
 
         if zombiePos then
-            return zombiePos, CurTime() + math.Rand(FREE_ROAM_PRESSURE_MIN, FREE_ROAM_PRESSURE_MAX)
+            return zombiePos, now + math.Rand(FREE_ROAM_PRESSURE_MIN, FREE_ROAM_PRESSURE_MAX)
         end
     end
 
-    return controller:FindSpot("random", { radius = 1000000 }), CurTime() + math.Rand(FREE_ROAM_RANDOM_MIN, FREE_ROAM_RANDOM_MAX)
+    return controller:FindSpot("random", { radius = 1000000 }), now + math.Rand(FREE_ROAM_RANDOM_MIN, FREE_ROAM_RANDOM_MAX)
 end
 
 function SC.MoveToSigil(bot, controller, strategy)
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
+    local now = CurTime()
+
     if bot.freeRoam or strategy == 0 then
-        local pressurePos = GetDistributedZombiePressurePos(bot)
+        local pressurePos = GetDistributedZombiePressurePos(bot, now)
 
         if pressurePos and (strategy == 3 or ZSB.Util:Odds(65)) then
-            SetTimedGoal(controller, pressurePos, FREE_ROAM_PRESSURE_MIN, FREE_ROAM_PRESSURE_MAX)
+            SetTimedGoal(controller, pressurePos, FREE_ROAM_PRESSURE_MIN, FREE_ROAM_PRESSURE_MAX, now)
             return
         end
 
         local randomPos = controller:FindSpot("random", { radius = 1000000 })
-        SetTimedGoal(controller, randomPos, FREE_ROAM_RANDOM_MIN, FREE_ROAM_RANDOM_MAX)
+        SetTimedGoal(controller, randomPos, FREE_ROAM_RANDOM_MIN, FREE_ROAM_RANDOM_MAX, now)
         return
     end
 
@@ -103,16 +107,16 @@ function SC.MoveToSigil(bot, controller, strategy)
 
             if distance <= SURVIVOR_ANCHOR_REACHED_DIST_SQR then
                 controller.PosGen = nil
-                controller.LastSegmented = CurTime() + 1
+                controller.LastSegmented = now + 1
             else
                 controller.PosGen = campingSpot
-                controller.LastSegmented = CurTime() + 1
+                controller.LastSegmented = now + 1
             end
 
             return
         end
 
-        local fallbackPos, fallbackSegmentTime = GetSurvivorFallbackPos(bot, controller, strategy)
+        local fallbackPos, fallbackSegmentTime = GetSurvivorFallbackPos(bot, controller, strategy, now)
         controller.PosGen = fallbackPos
         controller.LastSegmented = fallbackSegmentTime
         return

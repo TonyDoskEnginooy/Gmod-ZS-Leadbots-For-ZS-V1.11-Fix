@@ -3,17 +3,12 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._SharedLoaded then
-    return
-end
-
-SM._SharedLoaded = true
-
 local function SetJumpPower(bot)
-    if bot:GetZombieClass() > 5 then
-        bot:SetJumpPower(300)
-    else
-        bot:SetJumpPower(200)
+    local jumpPower = bot:GetZombieClass() > 5 and 300 or 200
+
+    if bot.LeadBot_LastJumpPower ~= jumpPower then
+        bot:SetJumpPower(jumpPower)
+        bot.LeadBot_LastJumpPower = jumpPower
     end
 end
 
@@ -37,12 +32,15 @@ local function ForceControllerRecompute(controller)
 end
 
 local function UpdateControllerTransform(bot, controller)
-    if controller:GetPos() ~= bot:GetPos() then
-        controller:SetPos(bot:GetPos())
+    local botPos = bot:GetPos()
+    local botAngles = bot:EyeAngles()
+
+    if controller:GetPos() ~= botPos then
+        controller:SetPos(botPos)
     end
 
-    if controller:GetAngles() ~= bot:EyeAngles() then
-        controller:SetAngles(bot:EyeAngles())
+    if controller:GetAngles() ~= botAngles then
+        controller:SetAngles(botAngles)
     end
 end
 

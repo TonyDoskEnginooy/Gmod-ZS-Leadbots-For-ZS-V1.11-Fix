@@ -3,25 +3,39 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._MovementWithoutTargetLoaded then
-    return
-end
+local LARGE_RANDOM_SPOT_OPTIONS = { radius = 1000000 }
+local SURVIVOR_WEAPON_CLASS_CACHE = {}
 
-SC._MovementWithoutTargetLoaded = true
+local function IsMeleeWeaponClass(className)
+    if not isstring(className) then
+        return false
+    end
+
+    local cached = SURVIVOR_WEAPON_CLASS_CACHE[className]
+    if cached ~= nil then
+        return cached
+    end
+
+    local classLower = string.lower(className)
+    local isMelee = classLower == "weapon_zs_swissarmyknife"
+        or classLower:find("knife", 1, true)
+        or classLower:find("crowbar", 1, true)
+        or classLower:find("fists", 1, true)
+        or classLower:find("machete", 1, true)
+        or classLower:find("melee", 1, true)
+
+    isMelee = isMelee and true or false
+    SURVIVOR_WEAPON_CLASS_CACHE[className] = isMelee
+
+    return isMelee
+end
 
 local function IsSurvivorMeleeWeapon(weapon)
     if not IsValid(weapon) then
         return false
     end
 
-    local className = string.lower(weapon:GetClass() or "")
-
-    return className == "weapon_zs_swissarmyknife"
-        or className:find("knife", 1, true)
-        or className:find("crowbar", 1, true)
-        or className:find("fists", 1, true)
-        or className:find("machete", 1, true)
-        or className:find("melee", 1, true)
+    return IsMeleeWeaponClass(weapon:GetClass() or "")
 end
 
 local function GetWeaponReserveAmmo(bot, weapon)
@@ -183,13 +197,13 @@ function SC.MoveWithoutTarget(bot, controller, strategy)
             for _, candidate in RandomPairs(player.GetAll()) do
                 if IsValid(candidate) and candidate:Team() == TEAM_SURVIVORS then
                     controller.PosGen = candidate:GetPos()
-                    controller.LastSegmented = CurTime() + 1000000
+                    controller.LastSegmented = CurTime() + 40
                     break
                 end
             end
         else
-            controller.PosGen = controller:FindSpot("random", { radius = 1000000 })
-            controller.LastSegmented = CurTime() + 1000000
+            controller.PosGen = controller:FindSpot("random", LARGE_RANDOM_SPOT_OPTIONS)
+            controller.LastSegmented = CurTime() + 40
         end
     end
 end

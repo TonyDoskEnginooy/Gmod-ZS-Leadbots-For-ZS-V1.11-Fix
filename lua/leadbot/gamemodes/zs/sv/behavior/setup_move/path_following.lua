@@ -3,12 +3,6 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._PathFollowingLoaded then
-    return
-end
-
-SM._PathFollowingLoaded = true
-
 local STAIR_EXIT_GRACE = 0.45
 local ZOMBIE_STUCK_JUMP_MIN = 0.35
 local ZOMBIE_STUCK_JUMP_MAX = 0.85
@@ -157,38 +151,59 @@ local function ClearCompletedGoal(controller)
     controller.NextCenter = 0
 end
 
-local function ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs)
+local function GetYawFromDelta(x, y)
+    if x == 0 then
+        if y > 0 then
+            return 90
+        elseif y < 0 then
+            return -90
+        end
+
+        return 0
+    end
+
+    local yaw = math.deg(math.atan(y / x))
+
+    if x < 0 then
+        yaw = yaw + 180
+    end
+
+    return yaw
+end
+
+local function ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs, botPos, now)
     if bot:Team() ~= TEAM_SURVIVORS or treatAsStairs then
         return
     end
 
-    local botPos = bot:GetPos()
-    local push = Vector(0, 0, 0)
+    local pushX = 0
+    local pushY = 0
     local crowdCount = 0
 
     for _, ally in ipairs(player.GetAll()) do
-        if ally ~= bot
-        and IsValid(ally)
-        and ally:Alive()
-        and ally:Team() == TEAM_SURVIVORS
-        then
-            local delta = botPos - ally:GetPos()
-            local distSqr = delta:LengthSqr()
+        if ally ~= bot then
+            local allyPos = ally:GetPos()
+            local deltaX = botPos.x - allyPos.x
+            local deltaY = botPos.y - allyPos.y
+            local distSqr = deltaX * deltaX + deltaY * deltaY
 
             if distSqr > 0 and distSqr <= ALLY_SEPARATION_RADIUS_SQR then
                 local dist = math.sqrt(distSqr)
-                push = push + delta:GetNormalized() * ((ALLY_SEPARATION_RADIUS - dist) / ALLY_SEPARATION_RADIUS)
+                local weight = (ALLY_SEPARATION_RADIUS - dist) / ALLY_SEPARATION_RADIUS
+
+                pushX = pushX + (deltaX / dist) * weight
+                pushY = pushY + (deltaY / dist) * weight
                 crowdCount = crowdCount + 1
             end
         end
     end
 
-    if crowdCount <= 0 or push:LengthSqr() <= 0.0001 then
+    if crowdCount <= 0 or (pushX * pushX + pushY * pushY) <= 0.0001 then
         return
     end
 
-    local separationAngles = push:Angle()
-    local yawDiff = math.AngleDifference(separationAngles.y, moveAngles.y)
+    local separationYaw = GetYawFromDelta(pushX, pushY)
+    local yawDiff = math.AngleDifference(separationYaw, moveAngles.y)
     local strength = math.Clamp(180 + (crowdCount * 140), 180, 680)
     local forwardAdjust = math.cos(math.rad(yawDiff)) * strength
     local sideAdjust = math.sin(math.rad(yawDiff)) * strength
@@ -214,9 +229,16 @@ function SM.UpdateMovement(bot, controller, mv)
         return nil, nil
     end
 
+    local now = CurTime()
+    local botPos = bot:GetPos()
+    local botPosZ = botPos.z
+    local velocity2DSqr = bot:GetVelocity():Length2DSqr()
+    local isFrozen = bot:IsFrozen()
+    local hasTarget = IsValid(controller.Target)
+
     local currentGoal, reachedFinalGoal = AdvanceSegment(bot, controller, segments)
 
-    if reachedFinalGoal and not IsValid(controller.Target) then
+    if reachedFinalGoal and not hasTarget then
         ClearCompletedGoal(controller)
         mv:SetForwardSpeed(0)
         return nil, nil
@@ -228,14 +250,16 @@ function SM.UpdateMovement(bot, controller, mv)
     end
 
     local goalPosition = currentGoal.pos
+    local currentArea = currentGoal.area
+    local isJumpArea = AreaHasAttribute(currentArea, NAV_MESH_JUMP)
     local isStairs = IsStairSegment(bot, segments, controller.cur_segment)
 
     if isStairs then
-        controller.LastStairTime = CurTime()
+        controller.LastStairTime = now
     end
 
-    local treatAsStairs = isStairs or (controller.LastStairTime + STAIR_EXIT_GRACE > CurTime())
-    local isDescending = treatAsStairs and goalPosition.z < (bot:GetPos().z - 8)
+    local treatAsStairs = isStairs or (controller.LastStairTime + STAIR_EXIT_GRACE > now)
+    local isDescending = treatAsStairs and goalPosition.z < (botPosZ - 8)
 
     controller.IsTraversingStairs = treatAsStairs
     controller.IsDescendingStairs = isDescending
@@ -245,39 +269,36 @@ function SM.UpdateMovement(bot, controller, mv)
         controller.NextJump = -1
     end
 
-    if not treatAsStairs and bot:GetVelocity():Length2DSqr() <= 225 and not bot:IsFrozen() and not IsValid(controller.Target) then
-        if controller.nextStuckJump < CurTime() then
+    if not treatAsStairs and velocity2DSqr <= 225 and not isFrozen and not hasTarget then
+        if controller.nextStuckJump < now then
             if not bot:Crouching() then
                 controller.NextJump = 0
             end
 
-            controller.nextStuckJump = CurTime() + math.Rand(1, 2)
+            controller.nextStuckJump = now + math.Rand(1, 2)
         end
     end
 
     HandleZombieJumpLogic(bot, controller, currentGoal, treatAsStairs)
 
-    if controller.NextCenter < CurTime() then
-        if not treatAsStairs
-            and not AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
-            and (bot:GetVelocity():Length2DSqr() <= 225 or IsValid(controller.Target))
-        then
-            if not bot:IsFrozen() then
+    if controller.NextCenter < now then
+        if not treatAsStairs and not isJumpArea and (velocity2DSqr <= 225 or hasTarget) then
+            if not isFrozen then
                 controller.strafeAngle = controller.strafeAngle == 1 and 2 or 1
-                controller.NextCenter = CurTime() + math.Rand(0.3, 0.9)
+                controller.NextCenter = now + math.Rand(0.3, 0.9)
             end
         end
     end
 
-    if controller.NextCenter > CurTime() then
+    if controller.NextCenter > now then
         local canStrafe = not treatAsStairs
-            and not AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
-            and bot:GetVelocity():Length2DSqr() <= 10000
-            and ((not IsValid(controller.Target) and bot:GetMoveType() ~= MOVETYPE_LADDER)
-                or (bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) and (controller.strategy == 0 or bot.freeRoam))
-                or (bot:Team() == TEAM_ZOMBIE and IsValid(controller.Target) and controller.strategy > 1))
+            and not isJumpArea
+            and velocity2DSqr <= 10000
+            and ((not hasTarget and bot:GetMoveType() ~= MOVETYPE_LADDER)
+                or (bot:Team() == TEAM_SURVIVORS and hasTarget and (controller.strategy == 0 or bot.freeRoam))
+                or (bot:Team() == TEAM_ZOMBIE and hasTarget and controller.strategy > 1))
 
-        if canStrafe and not bot:IsFrozen() then
+        if canStrafe and not isFrozen then
             if controller.strafeAngle == 1 then
                 mv:SetSideSpeed(1500)
                 if bot:LBGetSurvSkill() == 1 then
@@ -292,31 +313,33 @@ function SM.UpdateMovement(bot, controller, mv)
         end
     end
 
-    if not bot:IsFrozen() and not treatAsStairs and controller.NextJump ~= 0 and controller.NextJump < CurTime() then
-        local isJumpGoal = currentGoal.type > 1 or AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
+    if not isFrozen and not treatAsStairs and controller.NextJump ~= 0 and controller.NextJump < now then
+        local isJumpGoal = currentGoal.type > 1 or isJumpArea
         if isJumpGoal then
             controller.NextJump = 0
         end
     end
 
     local crouchTrace = util.QuickTrace(bot:EyePos(), bot:GetForward() * 90 - (bot:GetViewOffsetDucked() * 3), bot)
-    if AreaHasAttribute(currentGoal.area, NAV_MESH_CROUCH) or IsValid(crouchTrace.Entity) then
-        controller.NextDuck = CurTime() + 0.1
+    if AreaHasAttribute(currentArea, NAV_MESH_CROUCH) or IsValid(crouchTrace.Entity) then
+        controller.NextDuck = now + 0.1
     end
 
     controller.goalPos = goalPosition
 
+    local shootPos = bot:GetShootPos()
     local moveTarget
+
     if treatAsStairs then
-        moveTarget = Vector(goalPosition.x, goalPosition.y, bot:GetShootPos().z)
+        moveTarget = Vector(goalPosition.x, goalPosition.y, shootPos.z)
     else
         moveTarget = goalPosition + bot:GetCurrentViewOffset()
     end
 
-    local moveAngles = (moveTarget - bot:GetShootPos()):Angle()
+    local moveAngles = (moveTarget - shootPos):Angle()
     mv:SetMoveAngles(moveAngles)
 
-    ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs)
+    ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs, botPos, now)
 
     return currentGoal, moveAngles
 end

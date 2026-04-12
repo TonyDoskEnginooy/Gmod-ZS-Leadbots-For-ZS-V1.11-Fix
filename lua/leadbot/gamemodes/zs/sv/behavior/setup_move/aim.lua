@@ -41,15 +41,16 @@ local function GetCampingLookAngles(bot, strategy)
 end
 
 function SM.GetAimLerp(bot, controller, strategy)
+    local conVarSkill = leadbot_skill:GetInt()
     local aimSkill
 
-    if leadbot_skill:GetInt() == 0 then
+    if conVarSkill == 0 then
         aimSkill = 4
-    elseif leadbot_skill:GetInt() == 1 then
+    elseif conVarSkill == 1 then
         aimSkill = 8
-    elseif leadbot_skill:GetInt() == 2 then
+    elseif conVarSkill == 2 then
         aimSkill = 12
-    elseif leadbot_skill:GetInt() == 4 then
+    elseif conVarSkill == 4 then
         aimSkill = bot:LBGetShootSkill()
     else
         aimSkill = 16
@@ -63,28 +64,35 @@ function SM.GetAimLerp(bot, controller, strategy)
         end
     end
 
+    local frameTime = FrameTime()
+
     if bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) then
         if strategy > 0 and not bot.freeRoam then
-            return FrameTime() * (aimSkill / 2), FrameTime() * (aimSkill / 2)
+            return frameTime * (aimSkill / 2), frameTime * (aimSkill / 2)
         end
 
-        return FrameTime() * aimSkill, FrameTime() * aimSkill
+        return frameTime * aimSkill, frameTime * aimSkill
     end
 
-    return FrameTime() * (aimSkill / 4), FrameTime() * (aimSkill / 4)
+    return frameTime * (aimSkill / 4), frameTime * (aimSkill / 4)
 end
 
 function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLook)
+    local now = CurTime()
+    local isFrozen = bot:IsFrozen()
+    local eyeAngles = bot:EyeAngles()
+    local shootPos = bot:GetShootPos()
+
     if IsValid(controller.Target) then
         local aimPoint = ZSB.Util:GetCombatAimPoint(bot, controller.Target)
 
-        if aimPoint and not bot:IsFrozen() then
+        if aimPoint and not isFrozen then
             local targetLerp = lerp
 
             if bot:Team() == TEAM_SURVIVORS then
-                local distanceSqr = bot:GetShootPos():DistToSqr(aimPoint)
+                local distanceSqr = shootPos:DistToSqr(aimPoint)
                 local recentThreatActive = controller.RecentCloseThreat == controller.Target
-                    and (controller.RecentCloseThreatUntil or 0) > CurTime()
+                    and (controller.RecentCloseThreatUntil or 0) > now
 
                 if recentThreatActive then
                     targetLerp = math.max(targetLerp, FrameTime() * 60)
@@ -97,21 +105,21 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLoo
                 end
             end
 
-            bot:SetEyeAngles(LerpAngle(targetLerp, bot:EyeAngles(), (aimPoint - bot:GetShootPos()):Angle()))
+            bot:SetEyeAngles(LerpAngle(targetLerp, eyeAngles, (aimPoint - shootPos):Angle()))
         end
 
         return
     end
 
     if currentGoal and moveAngles then
-        if controller.LookAtTime > CurTime() and controller.LookAt then
-            local lookAngles = LerpAngle(lerpLook, bot:EyeAngles(), controller.LookAt)
-            if not bot:IsFrozen() then
+        if controller.LookAtTime > now and controller.LookAt then
+            local lookAngles = LerpAngle(lerpLook, eyeAngles, controller.LookAt)
+            if not isFrozen then
                 bot:SetEyeAngles(Angle(lookAngles.p, lookAngles.y, 0))
             end
         else
-            local goalAngles = LerpAngle(lerpLook, bot:EyeAngles(), moveAngles)
-            if not bot:IsFrozen() then
+            local goalAngles = LerpAngle(lerpLook, eyeAngles, moveAngles)
+            if not isFrozen then
                 bot:SetEyeAngles(Angle(goalAngles.p, goalAngles.y, 0))
             end
         end
@@ -120,7 +128,7 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLoo
     end
 
     local campingAngles = GetCampingLookAngles(bot, controller.strategy)
-    if campingAngles and not bot:IsFrozen() then
+    if campingAngles and not isFrozen then
         bot:SetEyeAngles(campingAngles)
     end
 end
