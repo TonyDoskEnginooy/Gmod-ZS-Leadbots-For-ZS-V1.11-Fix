@@ -1,6 +1,6 @@
 local quotaCvar = CreateConVar(
     "leadbot_quota",
-    "8",
+    "24",
     {FCVAR_ARCHIVE},
     "TF2 Style Quota for bots\nUse leadbot_add if you want unkickable bots",
     0
