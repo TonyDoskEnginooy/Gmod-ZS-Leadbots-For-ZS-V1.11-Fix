@@ -65,7 +65,6 @@ function SC.MoveToSigil(bot, controller, strategy)
                 controller.PosGen = nil
                 controller.LastSegmented = CurTime() + 1
             else
-                print(strategy, campingSpot)
                 controller.PosGen = campingSpot
                 controller.LastSegmented = CurTime() + 1
             end
