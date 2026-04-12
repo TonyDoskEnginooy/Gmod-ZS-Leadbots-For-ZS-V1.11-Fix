@@ -325,6 +325,121 @@ local function ChooseZombieSecondaryAttack(bot, controller, weapon, target, dist
     return nil
 end
 
+local function GetBlockedAttackTargetPos(ent, fallbackPos)
+    if not IsValid(ent) then
+        return fallbackPos
+    end
+
+    if ent.NearestPoint and isvector(fallbackPos) then
+        local ok, nearestPoint = pcall(ent.NearestPoint, ent, fallbackPos)
+        if ok and isvector(nearestPoint) then
+            return nearestPoint
+        end
+    end
+
+    if ent.WorldSpaceCenter then
+        local ok, center = pcall(ent.WorldSpaceCenter, ent)
+        if ok and isvector(center) then
+            return center
+        end
+    end
+
+    return ent:GetPos()
+end
+
+local function GetBlockedAttackEntity(bot, controller)
+    if not IsValid(bot) or not IsValid(controller) then
+        return nil, nil
+    end
+
+    if bot:IsFrozen() or bot:GetMoveType() == MOVETYPE_LADDER then
+        return nil, nil
+    end
+
+    -- Only use this fallback for zombies or melee survivors.
+    if bot:Team() ~= TEAM_ZOMBIE and not IsActiveSurvivorMelee(bot) then
+        return nil, nil
+    end
+
+    local velocity2DSqr = bot:GetVelocity():Length2DSqr()
+
+    -- Treat "almost stopped" as blocked movement.
+    if velocity2DSqr > 55 * 55 then
+        return nil, nil
+    end
+
+    local goalPos = controller.goalPos or controller.PosGen
+    local forwardDir
+
+    if isvector(goalPos) then
+        forwardDir = goalPos - bot:GetPos()
+        forwardDir.z = 0
+
+        if forwardDir:LengthSqr() > 1 then
+            forwardDir:Normalize()
+        else
+            forwardDir = bot:GetForward()
+        end
+    else
+        forwardDir = bot:GetForward()
+    end
+
+    -- Do not trigger if the bot is not really trying to move ahead.
+    if bot:GetForward():Dot(forwardDir) < 0.15 then
+        return nil, nil
+    end
+
+    local hullMins, hullMaxs = bot:GetHull()
+    local traceMins = Vector(hullMins.x * 0.35, hullMins.y * 0.35, 0)
+    local traceMaxs = Vector(hullMaxs.x * 0.35, hullMaxs.y * 0.35, math.max(hullMaxs.z * 0.35, 24))
+
+    local startPos = bot:WorldSpaceCenter()
+    local endPos = startPos + forwardDir * 58
+
+    local tr = util.TraceHull({
+        start = startPos,
+        endpos = endPos,
+        mins = traceMins,
+        maxs = traceMaxs,
+        filter = function(ent)
+            if not IsValid(ent) then
+                return false
+            end
+
+            if ent == bot or ent == controller then
+                return false
+            end
+
+            return true
+        end
+    })
+
+    if not tr.Hit or not IsValid(tr.Entity) then
+        return nil, nil
+    end
+
+    local ent = tr.Entity
+
+    -- Ignore friendly players to avoid dumb accidental swings.
+    if ent:IsPlayer() then
+        if ent == bot or ent:Team() == bot:Team() or not ent:Alive() or ent:HasGodMode() then
+            return nil, nil
+        end
+    end
+
+    local hitPos = GetBlockedAttackTargetPos(ent, tr.HitPos)
+
+    if not isvector(hitPos) then
+        return nil, nil
+    end
+
+    if bot:GetPos():DistToSqr(hitPos) > 90 * 90 then
+        return nil, nil
+    end
+
+    return ent, hitPos
+end
+
 local function ShouldPressAttack(bot, controller)
     local target = controller.Target
     if not IsValid(target) then
@@ -388,6 +503,7 @@ function SC.BuildActionButtons(bot, controller)
     local onStairs = controller.IsTraversingStairs == true
     local distanceSqr = IsValid(target) and bot:GetPos():DistToSqr(target:GetPos()) or math.huge
     local secondaryAttack = ChooseZombieSecondaryAttack(bot, controller, weapon, target, distanceSqr)
+    local blockedAttackEntity, blockedAttackPos = GetBlockedAttackEntity(bot, controller)
 
     if IsValid(weapon) then
         local clip1 = weapon:Clip1()
@@ -411,6 +527,17 @@ function SC.BuildActionButtons(bot, controller)
             -- Create a short hit-and-run window after a melee swing.
             controller.LastMeleeAttackTime = CurTime()
             controller.MeleeRetreatUntil = CurTime() + 0.55
+        end
+    elseif IsValid(blockedAttackEntity) then
+        buttons = bit.bor(buttons, IN_ATTACK)
+
+        -- Briefly look at the blocking entity so melee attacks connect more reliably.
+        controller.LookAt = (blockedAttackPos - bot:GetShootPos()):Angle()
+        controller.LookAtTime = CurTime() + 0.2
+
+        if IsActiveSurvivorMelee(bot) then
+            controller.LastMeleeAttackTime = CurTime()
+            controller.MeleeRetreatUntil = CurTime() + 0.4
         end
     end
 
