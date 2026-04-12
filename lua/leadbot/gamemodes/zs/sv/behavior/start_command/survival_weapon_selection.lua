@@ -196,7 +196,6 @@ local function GuessWeaponRole(className, ammoName)
     local classLower = string.lower(className or "")
 
     if classLower:find("knife", 1, true)
-        or classLower:find("axe", 1, true)
         or classLower:find("crowbar", 1, true)
         or classLower:find("fists", 1, true)
         or classLower:find("machete", 1, true)
@@ -608,6 +607,12 @@ end
 function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
     if bot:Team() ~= TEAM_SURVIVORS then
         controller.ConserveAmmoWithKnife = false
+        return
+    end
+
+    if SC.IsSurvivorBreakTarget(bot, controller.Target) then
+        controller.ConserveAmmoWithKnife = false
+        SelectMeleeFallback(bot)
         return
     end
 

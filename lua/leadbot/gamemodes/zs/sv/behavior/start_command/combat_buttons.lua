@@ -3,12 +3,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._CombatButtonsLoaded then
-    return
-end
-
-SC._CombatButtonsLoaded = true
-
 local function IsCombatTarget(bot, target)
     if not IsValid(target) or target == bot then
         return false
@@ -88,7 +82,6 @@ local function IsActiveSurvivorMelee(bot)
 
     return className == "weapon_zs_swissarmyknife"
         or className:find("knife", 1, true)
-        or className:find("axe", 1, true)
         or className:find("crowbar", 1, true)
         or className:find("fists", 1, true)
         or className:find("machete", 1, true)
@@ -341,6 +334,10 @@ local function ShouldPressAttack(bot, controller)
     local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
 
     if bot:Team() == TEAM_SURVIVORS then
+        if SC.IsSurvivorBreakTarget(bot, target) then
+            return SC.ShouldSwingAtSurvivorBreakTarget(bot, controller, target)
+        end
+
         if not IsCombatTarget(bot, target) then
             return false
         end
@@ -452,6 +449,12 @@ function SC.UpdateGoalFromTarget(bot, controller)
         or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
     then
         controller.PosGen = controller.Target:GetPos()
+        controller.LastSegmented = CurTime() + 0.1
+        return
+    end
+
+    if bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
+        controller.PosGen = SC.GetSurvivorBreakTargetPos(controller.Target, bot:GetPos()) or controller.Target:GetPos()
         controller.LastSegmented = CurTime() + 0.1
     end
 end

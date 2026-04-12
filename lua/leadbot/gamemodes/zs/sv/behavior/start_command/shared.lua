@@ -55,6 +55,7 @@ function SC.EnsureControllerState(controller)
     controller.ActiveObstacleTarget = controller.ActiveObstacleTarget or nil
     controller.LastObstacleTarget = controller.LastObstacleTarget or nil
     controller.RecentCloseThreatUntil = controller.RecentCloseThreatUntil or 0
+    controller.NextSurvivorBreakAttempt = controller.NextSurvivorBreakAttempt or 0
 end
 
 function SC.SetRoamState(bot)
@@ -100,10 +101,11 @@ end
 
 function SC.ForgetInvalidTarget(bot, controller)
     local target = controller.Target
+    local targetIsLivingActor = IsValid(target) and (target:IsPlayer() or target:IsNPC())
 
     if not IsValid(target)
     or controller.ForgetTarget < CurTime()
-    or target:Health() < 1
+    or (targetIsLivingActor and target:Health() < 1)
     or not ZSB.Util:CanPerceiveTarget(bot, target) then
         controller.Target = nil
         SC.ClearObstacleTargetState(controller)

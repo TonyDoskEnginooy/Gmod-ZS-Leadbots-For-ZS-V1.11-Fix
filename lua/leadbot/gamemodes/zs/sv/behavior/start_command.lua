@@ -6,6 +6,7 @@ includeStartCommandModule("shared.lua")
 includeStartCommandModule("zombie_targeting.lua")
 includeStartCommandModule("zombie_prop_throw.lua")
 includeStartCommandModule("map_interactions.lua")
+includeStartCommandModule("survivor_breaking.lua")
 includeStartCommandModule("movement_to_sigil.lua")
 includeStartCommandModule("movement_without_target.lua")
 includeStartCommandModule("combat_buttons.lua")
@@ -28,6 +29,10 @@ function LeadBot.StartCommand(bot, cmd)
     if bot:Team() == TEAM_SURVIVORS then
         SC.SetRoamState(bot)
         SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+
+        if not IsValid(controller.Target) then
+            SC.AcquireSurvivorBreakTarget(bot, controller, foundEnts)
+        end
 
         if IsValid(controller.Target) then
             local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())

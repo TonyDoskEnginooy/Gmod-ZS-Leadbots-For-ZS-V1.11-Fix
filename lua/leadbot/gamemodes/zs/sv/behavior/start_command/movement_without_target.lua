@@ -18,7 +18,6 @@ local function IsSurvivorMeleeWeapon(weapon)
 
     return className == "weapon_zs_swissarmyknife"
         or className:find("knife", 1, true)
-        or className:find("axe", 1, true)
         or className:find("crowbar", 1, true)
         or className:find("fists", 1, true)
         or className:find("machete", 1, true)
