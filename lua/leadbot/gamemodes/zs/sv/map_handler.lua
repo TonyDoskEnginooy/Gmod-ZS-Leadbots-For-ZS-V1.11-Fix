@@ -11,6 +11,7 @@ ZSB.Map.default = {
     removeFuncBreakable = false,
     removeFuncPhysbox = false,
     removeFuncPhysboxFilter = function(...) end,
+    removeFuncBreakableFilter = function(...) end,
     forceEnableMotion = false,
     removePropPhysicsList = {
         ["models/combine_apc.mdl"] = true,
@@ -18,15 +19,13 @@ ZSB.Map.default = {
         ["models/props/cs_militia/refrigerator01.mdl"] = true
     },
     botBarrierList = {},
-    sigil3Valid = false,
-    sigil2Valid = false,
-    sigil1Valid = false,
     campingSpotList= {},
     fixedPlayerSpawn = function(...) end,
     fixedZombieSpawn = function(...) end,
     eyeAngles = function(...) end
 }
 
+-- campingSpotList and eyeAngles need 3 entries each, they are the base of the map strategies
 ZSB.Map.handler = {
     zs_overandunderground_v2 = {
         survivorBreak = true,
@@ -354,12 +353,14 @@ function ZSB.Map.Init()
     RemoveFromMap("removeFuncDoorRotating", "func_door_rotating")
     RemoveFromMap("removePropDoorRotating", "prop_door_rotating")
     RemoveFromMap("removeFuncUseableladder", "func_useableladder")
-    RemoveFromMap("removeFuncBreakable", "func_breakable")
 
-    local funcPhysboxEnts = ents.FindByClass("func_physbox")
     local funcPhysboxFilter = ZSB.Map:GetValue("removeFuncPhysboxFilter")
 
-    RemoveFromMap("removeFuncPhysbox", "func_physbox", funcPhysboxEnts, funcPhysboxFilter)
+    RemoveFromMap("removeFuncPhysbox", "func_physbox", nil, funcPhysboxFilter)
+    
+    local funcBreakableFilter = ZSB.Map:GetValue("removeFuncBreakableFilter")
+    
+    RemoveFromMap("removeFuncBreakable", "func_breakable", nil, funcBreakableFilter)
 
     local propPhysicsEnts = ents.FindByClass("prop_physics")
 
