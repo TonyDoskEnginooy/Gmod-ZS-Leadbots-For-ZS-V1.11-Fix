@@ -95,13 +95,13 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLoo
                     and (controller.RecentCloseThreatUntil or 0) > now
 
                 if recentThreatActive then
-                    targetLerp = math.max(targetLerp, FrameTime() * 60)
+                    targetLerp = math.max(targetLerp, FrameTime() * 34)
                 elseif distanceSqr <= 90 * 90 then
-                    targetLerp = math.max(targetLerp, FrameTime() * 42)
+                    targetLerp = math.max(targetLerp, FrameTime() * 26)
                 elseif distanceSqr <= 180 * 180 then
-                    targetLerp = math.max(targetLerp, FrameTime() * 30)
+                    targetLerp = math.max(targetLerp, FrameTime() * 20)
                 elseif distanceSqr <= 260 * 260 then
-                    targetLerp = math.max(targetLerp, FrameTime() * 22)
+                    targetLerp = math.max(targetLerp, FrameTime() * 16)
                 end
             end
 

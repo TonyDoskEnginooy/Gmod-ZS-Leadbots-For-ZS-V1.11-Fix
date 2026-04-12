@@ -18,7 +18,7 @@ function SC.IsFragileMapBreakable(ent)
         return false
     end
 
-    if ZSB.Map:GetValue("zombieBreakCheck", true) then
+    if not ZSB.Map:GetValue("zombieBreakCheck") then
         return false
     end
 
@@ -26,7 +26,7 @@ function SC.IsFragileMapBreakable(ent)
         return true
     end
 
-    return ent:GetMaxHealth() <= 100
+    return ent:GetMaxHealth() <= 500
 end
 
 local function IsEnemyCandidate(bot, ent)
@@ -241,12 +241,14 @@ end
 function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     RefreshTargetLoad()
 
-    local emergencyTarget = SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
+    if math.random(1, 100) <= 40 then
+        local emergencyTarget = SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
 
-    if IsValid(emergencyTarget) then
-        controller.Target = emergencyTarget
-        controller.ForgetTarget = CurTime() + 1.1
-        return
+        if IsValid(emergencyTarget) then
+            controller.Target = emergencyTarget
+            controller.ForgetTarget = CurTime() + 1.1
+            return
+        end
     end
 
     local state = {
@@ -256,9 +258,7 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
 
     ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreZombieEnemyTarget)
     ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreZombieEnemyTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreZombieEnemyTarget)
     ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreZombieEnemyTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreZombieEnemyTarget)
 
     if not IsValid(state.bestTarget) and bot:Team() == TEAM_ZOMBIE then
         ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable"], "func_breakable", ScoreZombieObstacleTarget)
@@ -268,8 +268,13 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     end
 
     if IsValid(state.bestTarget) then
+        ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreZombieEnemyTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreZombieEnemyTarget)
+    end
+
+    if IsValid(state.bestTarget) then
         controller.Target = state.bestTarget
-        controller.ForgetTarget = CurTime() + 0.9
+        controller.ForgetTarget = CurTime() + 0.85
     end
 end
 

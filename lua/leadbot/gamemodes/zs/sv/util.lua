@@ -151,17 +151,28 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
         if not IsTorsoZombie(target) then
             if distanceSqr > 260 * 260 then
                 local headOffset = target:EyePos() - aimPoint
-                aimPoint = aimPoint + headOffset * 0.35
+                aimPoint = aimPoint + headOffset * 0.18
             elseif distanceSqr > 120 * 120 then
-                aimPoint = aimPoint + Vector(0, 0, 6)
+                aimPoint = aimPoint + Vector(0, 0, 3)
             end
         end
+
+        local shootSkill = math.max(attacker:LBGetShootSkill(), 1)
+        local normalizedSkill = math.Clamp((shootSkill - 1) / 5, 0, 1)
+        local jitterRadius = 10 - normalizedSkill * 4
+
+        if distanceSqr > 240 * 240 then
+            jitterRadius = jitterRadius * 1.35
+        end
+
+        local jitter = VectorRand() * jitterRadius
+        jitter.z = jitter.z * 0.35
+        aimPoint = aimPoint + jitter
     else
         aimPoint = target:EyePos()
     end
 
-    local leadTime = math.Clamp(shootPos:Distance(aimPoint) / 3000, 0.01, 0.075)
-
+    local leadTime = math.Clamp(shootPos:Distance(aimPoint) / 3600, 0.006, 0.05)
     return aimPoint + target:GetVelocity() * leadTime
 end
 
@@ -232,11 +243,11 @@ local function GetEntityScanPoint(ent, referencePos)
     return ent:GetPos()
 end
 
-local BOT_SCAN_RANGE = Vector(1500, 1500, 1500)
-local BOT_SCAN_DELAY = 0.2
-local NEAR_DISTANCE = 140
+local BOT_SCAN_RANGE = Vector(1200, 1200, 1200)
+local BOT_SCAN_DELAY = 0.32
+local NEAR_DISTANCE = 110
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
-local FACING_DOT_THRESHOLD = 0.55
+local FACING_DOT_THRESHOLD = 0.72
 
 local entsFindInBox = ents.FindInBox
 local ipairs = ipairs
@@ -287,23 +298,32 @@ function ZSB.Util:FindEnts(bot)
                 if shouldScan then
                     local entPos = GetEntityScanPoint(ent, botEyePos)
 
-                    if isvector(entPos) and bot:VisibleVec(entPos) then
-                        local bucketName = isNPC and "NPCs" or className
-                        local areaBucket = areaBuckets[bucketName]
-                        local nearBucket = nearBuckets[bucketName]
-                        local facingBucket = facingBuckets[bucketName]
+                    if isvector(entPos) then
+                        local canNotice = true
 
-                        areaBucket[#areaBucket + 1] = ent
-
-                        local toEnt = entPos - botEyePos
-                        toEnt:Normalize()
-
-                        if botForward:Dot(toEnt) > FACING_DOT_THRESHOLD then
-                            facingBucket[#facingBucket + 1] = ent
+                        if ent:IsPlayer() then
+                            local awarenessFailChance = bot:Team() == TEAM_SURVIVORS and 12 or 8
+                            canNotice = math.random(1, 100) > awarenessFailChance
                         end
 
-                        if entPos:DistToSqr(botPos) < NEAR_DISTANCE_SQR then
-                            nearBucket[#nearBucket + 1] = ent
+                        if canNotice and bot:VisibleVec(entPos) then
+                            local bucketName = isNPC and "NPCs" or className
+                            local areaBucket = areaBuckets[bucketName]
+                            local nearBucket = nearBuckets[bucketName]
+                            local facingBucket = facingBuckets[bucketName]
+
+                            areaBucket[#areaBucket + 1] = ent
+
+                            local toEnt = entPos - botEyePos
+                            toEnt:Normalize()
+
+                            if botForward:Dot(toEnt) > FACING_DOT_THRESHOLD then
+                                facingBucket[#facingBucket + 1] = ent
+                            end
+
+                            if entPos:DistToSqr(botPos) < NEAR_DISTANCE_SQR then
+                                nearBucket[#nearBucket + 1] = ent
+                            end
                         end
                     end
                 end

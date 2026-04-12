@@ -9,40 +9,43 @@ local function ScaleBulletSpread(spread, scale)
 end
 
 local function GetBotSpreadScale(bot, weapon, targetPos)
-    local shootSkill = math.max(bot:LBGetShootSkill(), 4)
-    local normalizedSkill = math.Clamp((shootSkill - 4) / 12, 0, 1)
-    local scale = 0.85 - normalizedSkill * 0.45
+    local shootSkill = math.max(bot:LBGetShootSkill(), 1)
+    local normalizedSkill = math.Clamp((shootSkill - 1) / 5, 0, 1)
+
+    -- Higher base spread and a smaller reward from skill.
+    local scale = 1.28 - normalizedSkill * 0.18
 
     if bot:LBGetSurvSkill() == 1 then
-        scale = scale * 0.82
+        -- Keep better survivors slightly tighter, but not laser-accurate.
+        scale = scale * 0.96
     end
 
     if targetPos then
         local distanceSqr = bot:GetShootPos():DistToSqr(targetPos)
 
         if distanceSqr <= 110 * 110 then
-            scale = scale * 0.16
+            scale = scale * 0.72
         elseif distanceSqr <= 220 * 220 then
-            scale = scale * 0.35
+            scale = scale * 0.84
         elseif distanceSqr <= 420 * 420 then
-            scale = scale * 0.6
+            scale = scale * 0.94
         end
     end
 
     local weaponClass = IsValid(weapon) and weapon:GetClass() or ""
 
     if weaponClass == "weapon_zs_sweepershotgun" then
-        scale = math.max(scale, 0.45)
+        scale = math.max(scale, 0.82)
     elseif weaponClass == "weapon_zs_crossbow" then
-        scale = math.max(scale, 0.1)
+        scale = math.max(scale, 0.30)
     else
-        scale = math.max(scale, 0.05)
+        scale = math.max(scale, 0.28)
     end
 
     return scale
 end
 
-local function KeepInfiniteAmmoForSurvivorBots(bot, weapon)
+local function KeepInfiniteAmmoForSurvivors(bot, weapon)
     if not leadbot_hinfammo:GetBool() then return end
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
@@ -69,7 +72,7 @@ local function KeepInfiniteAmmoForSurvivorBots(bot, weapon)
 end
 
 function LeadBot.FireBullets(bot, weapon, data)
-    KeepInfiniteAmmoForSurvivorBots(bot, weapon)
+    --KeepInfiniteAmmoForSurvivors(bot, weapon)
 
     if bot:Team() ~= TEAM_SURVIVORS then
         return
