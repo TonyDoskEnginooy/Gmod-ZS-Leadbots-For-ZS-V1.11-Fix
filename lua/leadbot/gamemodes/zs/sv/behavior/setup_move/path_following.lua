@@ -10,9 +10,70 @@ end
 SM._PathFollowingLoaded = true
 
 local STAIR_EXIT_GRACE = 0.45
+local ZOMBIE_STUCK_JUMP_MIN = 0.35
+local ZOMBIE_STUCK_JUMP_MAX = 0.85
+local ZOMBIE_RANDOM_JUMP_MIN = 1.8
+local ZOMBIE_RANDOM_JUMP_MAX = 3.6
 
 local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
+end
+
+local function QueueJump(controller)
+    controller.NextJump = 0
+    controller.NextCenter = 0
+end
+
+local function CanQueueGroundJump(bot, controller, treatAsStairs)
+    return controller.NextJump ~= 0
+        and bot:IsOnGround()
+        and not bot:IsFrozen()
+        and not bot:Crouching()
+        and not treatAsStairs
+end
+
+local function HandleZombieJumpLogic(bot, controller, currentGoal, treatAsStairs)
+    if bot:Team() ~= TEAM_ZOMBIE then
+        return
+    end
+
+    if not CanQueueGroundJump(bot, controller, treatAsStairs) then
+        return
+    end
+
+    local speed2DSqr = bot:GetVelocity():Length2DSqr()
+    local hasTarget = IsValid(controller.Target)
+    local hasGoal = hasTarget or isvector(controller.PosGen)
+    local heightToGoal = currentGoal.pos.z - bot:GetPos().z
+
+    if heightToGoal > 20 then
+        QueueJump(controller)
+        controller.nextStuckJump = CurTime() + math.Rand(ZOMBIE_STUCK_JUMP_MIN, ZOMBIE_STUCK_JUMP_MAX)
+        controller.NextRandomJump = CurTime() + math.Rand(ZOMBIE_RANDOM_JUMP_MIN, ZOMBIE_RANDOM_JUMP_MAX)
+        return
+    end
+
+    if hasGoal and speed2DSqr <= 225 and controller.nextStuckJump < CurTime() then
+        QueueJump(controller)
+        controller.nextStuckJump = CurTime() + math.Rand(ZOMBIE_STUCK_JUMP_MIN, ZOMBIE_STUCK_JUMP_MAX)
+        return
+    end
+
+    if AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP) then
+        return
+    end
+
+    if controller.NextRandomJump < CurTime() then
+        controller.NextRandomJump = CurTime() + math.Rand(ZOMBIE_RANDOM_JUMP_MIN, ZOMBIE_RANDOM_JUMP_MAX)
+
+        if speed2DSqr >= 140 * 140 then
+            local jumpChance = hasTarget and 24 or 10
+
+            if math.random(1, 100) <= jumpChance then
+                QueueJump(controller)
+            end
+        end
+    end
 end
 
 local function IsStairSegment(bot, segments, segmentIndex)
@@ -127,6 +188,8 @@ function SM.UpdateMovement(bot, controller, mv)
             controller.nextStuckJump = CurTime() + math.Rand(1, 2)
         end
     end
+
+    HandleZombieJumpLogic(bot, controller, currentGoal, treatAsStairs)
 
     if controller.NextCenter < CurTime() then
         if not treatAsStairs
