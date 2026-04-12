@@ -367,14 +367,39 @@ local function FinalizeZombieLoadout(bot)
     end)
 end
 
+local function ResetControllerAfterSpawn(bot)
+    local controller = bot.GetController and bot:GetController() or bot.ControllerBot
+
+    if not IsValid(controller) then
+        return
+    end
+
+    controller.Target = nil
+    controller.PosGen = nil
+    controller.TPos = nil
+    controller.LastSegmented = 0
+    controller.cur_segment = 2
+    controller.LookAtTime = 0
+    controller.NextCenter = 0
+    controller.NextJump = 0
+    controller.RecentCloseThreat = nil
+    controller.RecentCloseThreatUntil = 0
+
+    if ZSB and ZSB.StartCommand and ZSB.StartCommand.ClearObstacleTargetState then
+        ZSB.StartCommand.ClearObstacleTargetState(controller)
+    end
+end
+
 function LeadBot.Spawn(bot)
     SetKnockbackEnabled(bot)
+    ResetControllerAfterSpawn(bot)
 
     local teamId = bot:Team()
 
     if teamId == TEAM_SURVIVORS then
         -- This is a state reset, not a real survivor class system.
         bot:SetZombieClass(DEFAULT_CLASS_ID)
+        bot.freeRoam = true
         ApplySurvivorLateAppearance(bot)
         bot.LeadBot_WasZombieBeforeDeath = false
         return

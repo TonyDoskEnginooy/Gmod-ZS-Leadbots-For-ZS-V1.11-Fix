@@ -94,6 +94,10 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
 
     if sourceTag == "facing_player" then
         score = score + 220
+    elseif sourceTag == "near_player" or sourceTag == "near_npc" then
+        score = score + 140
+    elseif sourceTag == "area_player" or sourceTag == "area_npc" then
+        score = score + 55
     end
 
     if target == controller.Target then
@@ -106,7 +110,13 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
         load = load - 1
     end
 
-    score = score - (load * temperament.loadPenalty)
+    local loadPenalty = temperament.loadPenalty
+
+    if bot:Team() == TEAM_SURVIVORS and target:IsPlayer() then
+        loadPenalty = math.max(loadPenalty, 125)
+    end
+
+    score = score - (load * loadPenalty)
     score = score + SC.StableNoise(bot, target, temperament.imperfection)
 
     return score
@@ -246,7 +256,9 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
 
     ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreZombieEnemyTarget)
     ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreZombieEnemyTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.near["npc"], "near_npc", ScoreZombieEnemyTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreZombieEnemyTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreZombieEnemyTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreZombieEnemyTarget)
 
     if not IsValid(state.bestTarget) and bot:Team() == TEAM_ZOMBIE then
         ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable"], "func_breakable", ScoreZombieObstacleTarget)

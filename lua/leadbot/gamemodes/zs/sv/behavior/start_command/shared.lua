@@ -33,6 +33,10 @@ SC.FALLBACK_TEMPERAMENT = SC.FALLBACK_TEMPERAMENT or {
     moveSpeedMul = 1.0
 }
 
+SC.SURVIVOR_FREE_ROAM_DISABLE_HP = SC.SURVIVOR_FREE_ROAM_DISABLE_HP or 35
+SC.SURVIVOR_FREE_ROAM_ENABLE_HP = SC.SURVIVOR_FREE_ROAM_ENABLE_HP or 65
+SC.SURVIVOR_FREE_ROAM_TEAM_MARGIN = SC.SURVIVOR_FREE_ROAM_TEAM_MARGIN or 1
+
 SC.THROW_PROP_ZOMBIE_CLASSES = SC.THROW_PROP_ZOMBIE_CLASSES or {
     ["Zombie"] = true,
     ["Poison Zombie"] = true
@@ -64,11 +68,41 @@ function SC.EnsureControllerState(controller)
     controller.NextSurvivorBreakAttempt = controller.NextSurvivorBreakAttempt or 0
 end
 
+function SC.ClearGoal(controller)
+    if not IsValid(controller) then
+        return
+    end
+
+    controller.PosGen = nil
+    controller.TPos = nil
+    controller.LastSegmented = 0
+    controller.cur_segment = 2
+    controller.goalPos = vector_origin
+    controller.NextCenter = 0
+end
+
 function SC.SetRoamState(bot)
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
-    if bot:Health() <= 50 or team.NumPlayers(TEAM_SURVIVORS) <= team.NumPlayers(TEAM_ZOMBIE) then
-        bot.freeRoam = false
+    if bot.freeRoam == nil then
+        bot.freeRoam = true
+    end
+
+    local survivorCount = team.NumPlayers(TEAM_SURVIVORS)
+    local zombieCount = team.NumPlayers(TEAM_ZOMBIE)
+
+    if bot.freeRoam then
+        if bot:Health() <= SC.SURVIVOR_FREE_ROAM_DISABLE_HP
+        or survivorCount <= zombieCount then
+            bot.freeRoam = false
+        end
+
+        return
+    end
+
+    if bot:Health() >= SC.SURVIVOR_FREE_ROAM_ENABLE_HP
+    and survivorCount > (zombieCount + SC.SURVIVOR_FREE_ROAM_TEAM_MARGIN) then
+        bot.freeRoam = true
     end
 end
 
@@ -143,20 +177,28 @@ function SC.MarkObstacleTargetTimedOut(controller, target)
     controller.ObstacleTargetRetryUntil = CurTime() + SC.OBSTACLE_TARGET_RETRY_DELAY
     SC.ClearObstacleTargetState(controller)
     controller.Target = nil
-    controller.PosGen = nil
+    controller.LookAtTime = 0
+    SC.ClearGoal(controller)
 end
 
 function SC.ForgetInvalidTarget(bot, controller)
     local target = controller.Target
-    local targetIsLivingActor = IsValid(target) and (target:IsPlayer() or target:IsNPC())
 
-    if not IsValid(target)
-    or controller.ForgetTarget < CurTime()
+    if not IsValid(target) then
+        SC.ClearObstacleTargetState(controller)
+        return
+    end
+
+    local targetIsLivingActor = target:IsPlayer() or target:IsNPC()
+
+    if controller.ForgetTarget < CurTime()
     or (targetIsLivingActor and target:Health() < 1)
     or (target:IsPlayer() and target:HasGodMode())
     or not ZSB.Util:CanPerceiveTarget(bot, target) then
         controller.Target = nil
+        controller.LookAtTime = 0
         SC.ClearObstacleTargetState(controller)
+        SC.ClearGoal(controller)
         return
     end
 

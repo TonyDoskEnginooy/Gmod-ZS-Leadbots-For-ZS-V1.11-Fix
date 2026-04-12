@@ -14,6 +14,8 @@ local ZOMBIE_STUCK_JUMP_MIN = 0.35
 local ZOMBIE_STUCK_JUMP_MAX = 0.85
 local ZOMBIE_RANDOM_JUMP_MIN = 1.8
 local ZOMBIE_RANDOM_JUMP_MAX = 3.6
+local ALLY_SEPARATION_RADIUS = 56
+local ALLY_SEPARATION_RADIUS_SQR = ALLY_SEPARATION_RADIUS * ALLY_SEPARATION_RADIUS
 
 local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
@@ -106,25 +108,35 @@ local function IsStairSegment(bot, segments, segmentIndex)
     return false
 end
 
+local function HasReachedSegment(bot, currentGoal, isStairs)
+    local tolerance = isStairs and 48 or 16
+    local overlapTolerance = isStairs and 24 or 4
+
+    local botPos2D = Vector(bot:GetPos().x, bot:GetPos().y, 0)
+    local goalPos2D = Vector(currentGoal.pos.x, currentGoal.pos.y, 0)
+    local reached = botPos2D:DistToSqr(goalPos2D) <= (tolerance * tolerance)
+
+    if not reached and currentGoal.area and currentGoal.area:IsValid() then
+        reached = currentGoal.area:IsOverlapping(bot:GetPos(), overlapTolerance)
+    end
+
+    return reached
+end
+
 local function AdvanceSegment(bot, controller, segments)
     local segmentIndex = controller.cur_segment
     local currentGoal = controller.PosGen and segments[segmentIndex] or nil
+    local reachedFinalGoal = false
 
-    while currentGoal and segments[segmentIndex + 1] do
+    while currentGoal do
         local isStairs = IsStairSegment(bot, segments, segmentIndex)
-        local tolerance = isStairs and 48 or 16
-        local overlapTolerance = isStairs and 24 or 4
 
-        local botPos2D = Vector(bot:GetPos().x, bot:GetPos().y, 0)
-        local goalPos2D = Vector(currentGoal.pos.x, currentGoal.pos.y, 0)
-
-        local reached = botPos2D:DistToSqr(goalPos2D) <= (tolerance * tolerance)
-
-        if not reached and currentGoal.area and currentGoal.area:IsValid() then
-            reached = currentGoal.area:IsOverlapping(bot:GetPos(), overlapTolerance)
+        if not HasReachedSegment(bot, currentGoal, isStairs) then
+            break
         end
 
-        if not reached then
+        if not segments[segmentIndex + 1] then
+            reachedFinalGoal = true
             break
         end
 
@@ -133,7 +145,60 @@ local function AdvanceSegment(bot, controller, segments)
         currentGoal = segments[segmentIndex]
     end
 
-    return currentGoal
+    return currentGoal, reachedFinalGoal
+end
+
+local function ClearCompletedGoal(controller)
+    controller.PosGen = nil
+    controller.TPos = nil
+    controller.LastSegmented = 0
+    controller.cur_segment = 2
+    controller.goalPos = vector_origin
+    controller.NextCenter = 0
+end
+
+local function ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs)
+    if bot:Team() ~= TEAM_SURVIVORS or treatAsStairs then
+        return
+    end
+
+    local botPos = bot:GetPos()
+    local push = Vector(0, 0, 0)
+    local crowdCount = 0
+
+    for _, ally in ipairs(player.GetAll()) do
+        if ally ~= bot
+        and IsValid(ally)
+        and ally:Alive()
+        and ally:Team() == TEAM_SURVIVORS
+        then
+            local delta = botPos - ally:GetPos()
+            local distSqr = delta:LengthSqr()
+
+            if distSqr > 0 and distSqr <= ALLY_SEPARATION_RADIUS_SQR then
+                local dist = math.sqrt(distSqr)
+                push = push + delta:GetNormalized() * ((ALLY_SEPARATION_RADIUS - dist) / ALLY_SEPARATION_RADIUS)
+                crowdCount = crowdCount + 1
+            end
+        end
+    end
+
+    if crowdCount <= 0 or push:LengthSqr() <= 0.0001 then
+        return
+    end
+
+    local separationAngles = push:Angle()
+    local yawDiff = math.AngleDifference(separationAngles.y, moveAngles.y)
+    local strength = math.Clamp(180 + (crowdCount * 140), 180, 680)
+    local forwardAdjust = math.cos(math.rad(yawDiff)) * strength
+    local sideAdjust = math.sin(math.rad(yawDiff)) * strength
+
+    mv:SetForwardSpeed(math.Clamp(mv:GetForwardSpeed() + forwardAdjust, -1200, 1400))
+    mv:SetSideSpeed(math.Clamp(mv:GetSideSpeed() + sideAdjust, -1500, 1500))
+
+    if crowdCount >= 2 and bot:IsOnGround() and not IsValid(controller.Target) and controller.NextJump ~= 0 then
+        controller.NextJump = 0
+    end
 end
 
 function SM.UpdateMovement(bot, controller, mv)
@@ -149,15 +214,16 @@ function SM.UpdateMovement(bot, controller, mv)
         return nil, nil
     end
 
-    local currentGoal = AdvanceSegment(bot, controller, segments)
+    local currentGoal, reachedFinalGoal = AdvanceSegment(bot, controller, segments)
+
+    if reachedFinalGoal and not IsValid(controller.Target) then
+        ClearCompletedGoal(controller)
+        mv:SetForwardSpeed(0)
+        return nil, nil
+    end
 
     if not currentGoal then
-        if bot:Team() == TEAM_SURVIVORS then
-            mv:SetForwardSpeed(-1200)
-        elseif bot:Team() == TEAM_ZOMBIE then
-            mv:SetForwardSpeed(1200)
-        end
-
+        mv:SetForwardSpeed(0)
         return nil, nil
     end
 
@@ -249,6 +315,8 @@ function SM.UpdateMovement(bot, controller, mv)
 
     local moveAngles = (moveTarget - bot:GetShootPos()):Angle()
     mv:SetMoveAngles(moveAngles)
+
+    ApplySurvivorSeparation(bot, controller, mv, moveAngles, treatAsStairs)
 
     return currentGoal, moveAngles
 end
