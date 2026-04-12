@@ -22,7 +22,7 @@ function SC.IsFragileMapBreakable(ent)
         return true
     end
 
-    return ent:GetMaxHealth() <= 1
+    return ent:GetMaxHealth() <= 100
 end
 
 local function IsEnemyCandidate(bot, ent)
@@ -186,8 +186,12 @@ function SC.IsSimpleObstacleTarget(_, ent)
         return class == "func_breakable" and SC.IsFragileMapBreakable(ent)
     end
 
+    if class == "func_breakable_surf" then
+        return true
+    end
+
     if class == "prop_physics" then
-        if not ent.GetMaxHealth or ent:GetMaxHealth() <= 1 then
+        if not ent.GetMaxHealth then
             return false
         end
 
@@ -205,6 +209,10 @@ function SC.IsSimpleObstacleTarget(_, ent)
     end
 
     if class == "prop_dynamic" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    if class == "func_physbox" then
         return ent.GetMaxHealth and ent:GetMaxHealth() > 1
     end
 
