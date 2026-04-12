@@ -62,7 +62,7 @@ CreateConVar("leadbot_knockback", "1", {FCVAR_ARCHIVE}, "Whether players should 
 
 local leadbot_mapchanges = CreateConVar(
     "leadbot_mapchanges",
-    "0",
+    "1",
     {FCVAR_ARCHIVE},
     "Whether certain map entities should be adjusted to reduce bot pathing issues.",
     0,

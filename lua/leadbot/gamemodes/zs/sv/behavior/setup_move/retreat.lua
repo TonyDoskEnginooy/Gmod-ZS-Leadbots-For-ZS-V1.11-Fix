@@ -23,27 +23,6 @@ local function TraceIgnoringProps(startPos, endPos, controller, bot)
     })
 end
 
-local function IsActiveSurvivorMelee(bot)
-    if bot:Team() ~= TEAM_SURVIVORS then
-        return false
-    end
-
-    local weapon = bot:GetActiveWeapon()
-    if not IsValid(weapon) then
-        return false
-    end
-
-    local className = string.lower(weapon:GetClass() or "")
-
-    return className == "weapon_zs_swissarmyknife"
-        or className:find("knife", 1, true)
-        or className:find("axe", 1, true)
-        or className:find("crowbar", 1, true)
-        or className:find("fists", 1, true)
-        or className:find("machete", 1, true)
-        or className:find("melee", 1, true)
-end
-
 local function ApplyRetreatStrafe(controller, mv, trace)
     if not IsValid(trace.Entity) then
         return

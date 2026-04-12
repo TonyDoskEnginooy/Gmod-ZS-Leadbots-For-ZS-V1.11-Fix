@@ -93,6 +93,7 @@ function SC.MarkObstacleTargetTimedOut(controller, target)
     controller.ObstacleTargetRetryUntil = CurTime() + SC.OBSTACLE_TARGET_RETRY_DELAY
     SC.ClearObstacleTargetState(controller)
     controller.Target = nil
+    controller.PosGen = nil
 end
 
 function SC.ForgetInvalidTarget(bot, controller)

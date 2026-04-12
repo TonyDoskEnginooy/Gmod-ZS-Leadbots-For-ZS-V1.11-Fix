@@ -13,22 +13,28 @@ local leadbot_skill = GetConVar("leadbot_skill")
 
 local function GetCampingLookAngles(bot, strategy)
     if bot:Team() ~= TEAM_SURVIVORS then return nil end
+    if strategy < 1 or strategy > 3 then return nil end
 
-    local sigil1 = ZSB.Map:GetValue("sigil1")
-    local sigil2 = ZSB.Map:GetValue("sigil2")
-    local sigil3 = ZSB.Map:GetValue("sigil3")
+    local campingSpotList = ZSB.Map:GetValue("campingSpotList")
+    local eyeAngles = ZSB.Map:GetValue("eyeAngles")
     local position = bot:GetPos()
 
-    if strategy == 1 and IsValid(sigil3) and position:DistToSqr(sigil3:GetPos()) <= 5000 then
-        return ZSB.Map:GetValue("eyeAngles", nil, strategy, math.random(-15, 15), math.random(-45, 45), math.random(-90, 90))
+    if not istable(campingSpotList) or not isfunction(eyeAngles) then
+        return nil
     end
 
-    if strategy == 2 and IsValid(sigil2) and position:DistToSqr(sigil2:GetPos()) <= 5000 then
-        return ZSB.Map:GetValue("eyeAngles", nil, strategy, math.random(-15, 15), math.random(-45, 45), math.random(-90, 90))
+    local campingSpot = campingSpotList[strategy]
+    if not campingSpot then
+        return nil
     end
 
-    if strategy == 3 and IsValid(sigil1) and position:DistToSqr(sigil1:GetPos()) <= 5000 then
-        return ZSB.Map:GetValue("eyeAngles", nil, strategy, math.random(-15, 15), math.random(-45, 45), math.random(-90, 90))
+    if position:DistToSqr(campingSpot) <= 5000 then
+        return eyeAngles(
+            strategy,
+            math.random(-15, 15),
+            math.random(-45, 45),
+            math.random(-90, 90)
+        )
     end
 
     return nil
