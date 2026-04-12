@@ -382,5 +382,5 @@ function ZSB.Map.Init()
     end
 
     CreateBotBarriers()
-    CreateBotCampingSpots()
+    --CreateBotCampingSpots()
 end
