@@ -19,8 +19,5 @@ function LeadBot.PostDeath(bot)
     end
 
     local zombieClass = bot:GetZombieClass()
-    
-    if zombieClass == TORSO_ZOMBIE_CLASS then
-        bot.LeadBot_PreserveZombieClass = zombieClass
-    end
+    bot.LeadBot_PreserveZombieClass = zombieClass
 end
