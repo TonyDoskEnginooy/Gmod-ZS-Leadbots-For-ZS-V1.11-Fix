@@ -18,6 +18,9 @@ SC.TARGET_LOAD = SC.TARGET_LOAD or setmetatable({}, { __mode = "k" })
 SC.NEXT_TARGET_LOAD_REFRESH = SC.NEXT_TARGET_LOAD_REFRESH or 0
 SC.OBSTACLE_TARGET_TIMEOUT = SC.OBSTACLE_TARGET_TIMEOUT or 4
 SC.OBSTACLE_TARGET_RETRY_DELAY = SC.OBSTACLE_TARGET_RETRY_DELAY or 6
+SC.OBSTACLE_TARGET_SWING_LIMIT_MIN = SC.OBSTACLE_TARGET_SWING_LIMIT_MIN or 1
+SC.OBSTACLE_TARGET_SWING_LIMIT_MAX = SC.OBSTACLE_TARGET_SWING_LIMIT_MAX or 2
+SC.OBSTACLE_TARGET_SWING_DEBOUNCE = SC.OBSTACLE_TARGET_SWING_DEBOUNCE or 0.55
 
 SC.FALLBACK_ZOMBIE_TEMPERAMENT = SC.FALLBACK_ZOMBIE_TEMPERAMENT or {
     name = "rusher",
@@ -54,6 +57,9 @@ function SC.EnsureControllerState(controller)
     controller.ObstacleTargetRetryUntil = controller.ObstacleTargetRetryUntil or 0
     controller.ActiveObstacleTarget = controller.ActiveObstacleTarget or nil
     controller.LastObstacleTarget = controller.LastObstacleTarget or nil
+    controller.ObstacleSwingCount = controller.ObstacleSwingCount or 0
+    controller.ObstacleSwingLimit = controller.ObstacleSwingLimit or 0
+    controller.NextObstacleSwingCount = controller.NextObstacleSwingCount or 0
     controller.RecentCloseThreatUntil = controller.RecentCloseThreatUntil or 0
     controller.NextSurvivorBreakAttempt = controller.NextSurvivorBreakAttempt or 0
 end
@@ -86,9 +92,50 @@ function SC.KillLonelyHordeBot(bot)
     end
 end
 
+function SC.ResetObstacleSwingState(controller)
+    controller.ObstacleSwingCount = 0
+    controller.ObstacleSwingLimit = 0
+    controller.NextObstacleSwingCount = 0
+end
+
+function SC.BeginObstacleTarget(controller, target)
+    controller.ActiveObstacleTarget = target
+    controller.ObstacleTargetSince = CurTime()
+    controller.ObstacleSwingCount = 0
+    controller.ObstacleSwingLimit = math.random(
+        SC.OBSTACLE_TARGET_SWING_LIMIT_MIN,
+        SC.OBSTACLE_TARGET_SWING_LIMIT_MAX
+    )
+    controller.NextObstacleSwingCount = 0
+end
+
+function SC.RegisterObstacleSwing(controller, target)
+    if not IsValid(controller) or not IsValid(target) or controller.Target ~= target then
+        return false
+    end
+
+    if controller.ActiveObstacleTarget ~= target then
+        SC.BeginObstacleTarget(controller, target)
+    end
+
+    if controller.NextObstacleSwingCount > CurTime() then
+        return false
+    end
+
+    controller.ObstacleSwingCount = (controller.ObstacleSwingCount or 0) + 1
+    controller.NextObstacleSwingCount = CurTime() + SC.OBSTACLE_TARGET_SWING_DEBOUNCE
+
+    if controller.ObstacleSwingCount >= math.max(controller.ObstacleSwingLimit or 0, 1) then
+        SC.MarkObstacleTargetTimedOut(controller, target)
+    end
+
+    return true
+end
+
 function SC.ClearObstacleTargetState(controller)
     controller.ActiveObstacleTarget = nil
     controller.ObstacleTargetSince = 0
+    SC.ResetObstacleSwingState(controller)
 end
 
 function SC.MarkObstacleTargetTimedOut(controller, target)
@@ -119,8 +166,7 @@ function SC.ForgetInvalidTarget(bot, controller)
     end
 
     if controller.ActiveObstacleTarget ~= target then
-        controller.ActiveObstacleTarget = target
-        controller.ObstacleTargetSince = CurTime()
+        SC.BeginObstacleTarget(controller, target)
         return
     end
 
