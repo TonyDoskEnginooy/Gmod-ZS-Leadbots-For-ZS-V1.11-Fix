@@ -35,6 +35,7 @@ local function IsEnemyCandidate(bot, ent)
     if ent:IsPlayer() then
         return ent:Alive()
             and ent:Team() ~= bot:Team()
+            and not ent:HasGodMode()
             and ZSB.Util:CanPerceiveTarget(bot, ent)
     end
 

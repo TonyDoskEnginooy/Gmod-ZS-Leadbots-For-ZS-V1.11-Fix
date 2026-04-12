@@ -106,6 +106,7 @@ function SC.ForgetInvalidTarget(bot, controller)
     if not IsValid(target)
     or controller.ForgetTarget < CurTime()
     or (targetIsLivingActor and target:Health() < 1)
+    or (target:IsPlayer() and target:HasGodMode())
     or not ZSB.Util:CanPerceiveTarget(bot, target) then
         controller.Target = nil
         SC.ClearObstacleTargetState(controller)
