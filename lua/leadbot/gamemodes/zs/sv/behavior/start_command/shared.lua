@@ -22,7 +22,7 @@ SC.OBSTACLE_TARGET_SWING_LIMIT_MIN = SC.OBSTACLE_TARGET_SWING_LIMIT_MIN or 1
 SC.OBSTACLE_TARGET_SWING_LIMIT_MAX = SC.OBSTACLE_TARGET_SWING_LIMIT_MAX or 2
 SC.OBSTACLE_TARGET_SWING_DEBOUNCE = SC.OBSTACLE_TARGET_SWING_DEBOUNCE or 0.55
 
-SC.FALLBACK_ZOMBIE_TEMPERAMENT = SC.FALLBACK_ZOMBIE_TEMPERAMENT or {
+SC.FALLBACK_TEMPERAMENT = SC.FALLBACK_TEMPERAMENT or {
     name = "rusher",
     loadPenalty = 60,
     holdBonus = 220,
@@ -175,8 +175,8 @@ function SC.ForgetInvalidTarget(bot, controller)
     end
 end
 
-function SC.GetZombieTemperament(bot)
-    return bot.LeadBot_ZombieTemperament or SC.FALLBACK_ZOMBIE_TEMPERAMENT
+function SC.GetTemperament(bot)
+    return bot.LeadBot_Temperament or SC.FALLBACK_TEMPERAMENT
 end
 
 function SC.StableNoise(bot, ent, magnitude)

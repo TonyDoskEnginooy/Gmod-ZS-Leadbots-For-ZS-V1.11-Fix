@@ -3,27 +3,21 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._ZombieTemperamentLoaded then
-    return
-end
-
-SM._ZombieTemperamentLoaded = true
-
-local FALLBACK_ZOMBIE_TEMPERAMENT = {
+local FALLBACK_TEMPERAMENT = {
     name = "rusher",
     flankBias = 0.15,
     moveSpeedMul = 1.0
 }
 
-local function GetZombieTemperament(bot)
-    return bot.LeadBot_ZombieTemperament or FALLBACK_ZOMBIE_TEMPERAMENT
+local function GetTemperament(bot)
+    return bot.LeadBot_Temperament or FALLBACK_TEMPERAMENT
 end
 
-function SM.ApplyZombieTemperamentMovement(bot, controller, mv)
+function SM.ApplyTemperamentMovement(bot, controller, mv)
     if bot:Team() ~= TEAM_ZOMBIE then return end
     if not IsValid(controller.Target) or not controller.Target:IsPlayer() then return end
 
-    local temperament = GetZombieTemperament(bot)
+    local temperament = GetTemperament(bot)
     local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
 
     if temperament.name == "flanker" then

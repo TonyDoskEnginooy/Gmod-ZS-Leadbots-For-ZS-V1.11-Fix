@@ -4,7 +4,7 @@ end
 
 includeSetupMoveModule("shared.lua")
 includeSetupMoveModule("debug.lua")
-includeSetupMoveModule("zombie_temperament.lua")
+includeSetupMoveModule("temperament.lua")
 includeSetupMoveModule("retreat.lua")
 includeSetupMoveModule("path_following.lua")
 includeSetupMoveModule("aim.lua")
@@ -32,7 +32,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
     local lerp, lerpLook = SM.GetAimLerp(bot, controller, controller.strategy)
     local currentGoal, moveAngles = SM.UpdateMovement(bot, controller, mv)
 
-    SM.ApplyZombieTemperamentMovement(bot, controller, mv)
+    SM.ApplyTemperamentMovement(bot, controller, mv)
 
     SM.DebugPath(controller)
     SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLook)

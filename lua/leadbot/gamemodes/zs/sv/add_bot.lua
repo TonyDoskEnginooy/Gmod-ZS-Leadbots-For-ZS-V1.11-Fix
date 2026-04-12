@@ -97,7 +97,7 @@ local defaultBotNames = {
     refugee04 = "Yance",
 }
 
-local ZOMBIE_TEMPERAMENTS = {
+local TEMPERAMENTS = {
     {
         name = "rusher",
         weight = 30,
@@ -170,16 +170,16 @@ local leadbot_name_prefix = GetConVar("leadbot_name_prefix")
 local leadbot_strategy = GetConVar("leadbot_strategy")
 local sv_cheats = GetConVar("sv_cheats")
 
-local function PickZombieTemperament()
+local function PickTemperament()
     local totalWeight = 0
 
-    for _, temperament in ipairs(ZOMBIE_TEMPERAMENTS) do
+    for _, temperament in ipairs(TEMPERAMENTS) do
         totalWeight = totalWeight + temperament.weight
     end
 
     local roll = math.Rand(0, totalWeight)
 
-    for _, temperament in ipairs(ZOMBIE_TEMPERAMENTS) do
+    for _, temperament in ipairs(TEMPERAMENTS) do
         roll = roll - temperament.weight
 
         if roll <= 0 then
@@ -187,13 +187,13 @@ local function PickZombieTemperament()
         end
     end
 
-    return table.Copy(ZOMBIE_TEMPERAMENTS[1])
+    return table.Copy(TEMPERAMENTS[1])
 end
 
-local function EnsureZombieTemperament(bot)
-    if bot.LeadBot_ZombieTemperament then return end
+local function EnsureTemperament(bot)
+    if bot.LeadBot_Temperament then return end
 
-    bot.LeadBot_ZombieTemperament = PickZombieTemperament()
+    bot.LeadBot_Temperament = PickTemperament()
     bot.LeadBot_PersonalitySeed = math.Rand(1, 100000)
 end
 
@@ -442,7 +442,7 @@ function LeadBot.AddBot()
     bot.BotStrategy = strategy
     bot.OriginalName = original_name
 
-    EnsureZombieTemperament(bot)
+    EnsureTemperament(bot)
 
     local controller = ents.Create("leadbot_navigator")
     if IsValid(controller) then

@@ -132,13 +132,13 @@ local function GetZombieStage()
     return "late"
 end
 
-local function GetZombieTemperamentName(bot)
-    local temperament = bot.LeadBot_ZombieTemperament
+local function GetTemperamentName(bot)
+    local temperament = bot.LeadBot_Temperament
     return temperament and temperament.name or "rusher"
 end
 
 local function GetTemperamentClassMultiplier(bot, classId)
-    local temperamentName = GetZombieTemperamentName(bot)
+    local temperamentName = GetTemperamentName(bot)
     local temperamentWeights = TEMPERAMENT_CLASS_MULTIPLIERS[temperamentName]
 
     if not temperamentWeights then

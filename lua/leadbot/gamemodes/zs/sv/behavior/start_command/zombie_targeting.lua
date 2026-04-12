@@ -79,7 +79,7 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
         return nil
     end
 
-    local temperament = SC.GetZombieTemperament(bot)
+    local temperament = SC.GetTemperament(bot)
     local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
     local score = 0
 
@@ -125,7 +125,7 @@ local function ScoreZombieObstacleTarget(bot, controller, target)
         return nil
     end
 
-    local temperament = SC.GetZombieTemperament(bot)
+    local temperament = SC.GetTemperament(bot)
     local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
     local score = 140 + temperament.obstacleBias + SC.GetDistanceScore(distanceSqr)
 
