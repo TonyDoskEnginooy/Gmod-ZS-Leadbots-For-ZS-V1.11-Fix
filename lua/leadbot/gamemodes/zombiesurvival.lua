@@ -140,17 +140,6 @@ local function shouldRedeemPlayerOnJoin()
     return CurTime() <= (zs_roundtime:GetInt() * 0.5) and not zs_human_deadline:GetBool()
 end
 
-local function movePlayerToFixedSpawnIfNeeded(ply)
-    if not leadbot_mapchanges:GetBool() then
-        return
-    end
-
-    local fixedPos = ZSB.Map:GetValue("fixedPlayerSpawn")
-    if fixedPos then
-        ply:SetPos(fixedPos)
-    end
-end
-
 function CmdKickBot(ply, _, args)
     if (IsValid(ply) and not ply:IsSuperAdmin()) or not args[1] then
         return
@@ -228,7 +217,6 @@ hook.Add("PlayerInitialSpawn", REAL_PLAYER_INITIAL_SPAWN_HOOK, function(ply)
             end
 
             ply:Redeem()
-            movePlayerToFixedSpawnIfNeeded(ply)
         end)
     end
 
