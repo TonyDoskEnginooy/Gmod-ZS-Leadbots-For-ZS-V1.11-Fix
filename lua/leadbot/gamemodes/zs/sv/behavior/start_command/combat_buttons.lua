@@ -544,16 +544,25 @@ function SC.BuildActionButtons(bot, controller)
     if bot:GetMoveType() == MOVETYPE_LADDER then
         local pos = controller.goalPos or bot:GetPos()
         local ang = ((pos + bot:GetCurrentViewOffset()) - bot:GetShootPos()):Angle()
+        local forceLadderExit = controller.ForceLadderExitUntil and controller.ForceLadderExitUntil > CurTime()
 
-        if pos.z > controller:GetPos().z then
-            controller.LookAt = Angle(-30, ang.y, 0)
+        if forceLadderExit then
+            -- Press jump to leave the ladder after being stuck on it for too long.
+            controller.LookAt = Angle(0, ang.y, 0)
+            controller.LookAtTime = CurTime() + 0.1
+            controller.NextJump = -1
+            buttons = bit.bor(buttons, IN_JUMP)
         else
-            controller.LookAt = Angle(30, ang.y, 0)
-        end
+            if pos.z > controller:GetPos().z then
+                controller.LookAt = Angle(-30, ang.y, 0)
+            else
+                controller.LookAt = Angle(30, ang.y, 0)
+            end
 
-        controller.LookAtTime = CurTime() + 0.1
-        controller.NextJump = -1
-        buttons = bit.bor(buttons, IN_FORWARD)
+            controller.LookAtTime = CurTime() + 0.1
+            controller.NextJump = -1
+            buttons = bit.bor(buttons, IN_FORWARD)
+        end
     elseif onStairs then
         controller.NextJump = -1
         buttons = bit.bor(buttons, IN_FORWARD)

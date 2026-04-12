@@ -57,6 +57,59 @@ local unstuckOffsets = {
     Vector(0, 0, 72)
 }
 
+local leadbot_mapchanges = GetConVar("leadbot_mapchanges")
+
+local LADDER_ESCAPE_DELAY = 15
+local LADDER_ESCAPE_RETRY = 1
+
+local function GetBotController(ply)
+    return ply.GetController and ply:GetController() or ply.ControllerBot
+end
+
+local function UpdateBotLadderEscapeState(ply, state)
+    if not IsValid(ply) or not ply:IsBot() then
+        if state then
+            state.ladderStartTime = 0
+            state.nextLadderEscape = 0
+        end
+
+        return false
+    end
+
+    if ply:GetMoveType() ~= MOVETYPE_LADDER then
+        state.ladderStartTime = 0
+        state.nextLadderEscape = 0
+        return false
+    end
+
+    local now = CurTime()
+
+    if state.ladderStartTime == 0 then
+        state.ladderStartTime = now
+        state.nextLadderEscape = 0
+        return true
+    end
+
+    if now - state.ladderStartTime < LADDER_ESCAPE_DELAY then
+        return true
+    end
+
+    if state.nextLadderEscape > now then
+        return true
+    end
+
+    local controller = GetBotController(ply)
+
+    if IsValid(controller) then
+        -- Ask StartCommand to press jump while the bot is on the ladder.
+        controller.ForceLadderExitUntil = now + 0.25
+        controller.NextJump = -1
+    end
+
+    state.nextLadderEscape = now + LADDER_ESCAPE_RETRY
+    return true
+end
+
 local function GetPlayerHull(ply)
     if ply:Crouching() then
         return ply:GetHullDuck()
@@ -146,7 +199,9 @@ local function AddStuckState(ply, pos)
             lastPos = pos,
             outsideWorldCounter = 0,
             embeddedCounter = 0,
-            stalledCounter = 0
+            stalledCounter = 0,
+            ladderStartTime = 0,
+            nextLadderEscape = 0
         }
 
         return true
@@ -163,6 +218,8 @@ local function ResetStuckState(ply)
         state.outsideWorldCounter = 0
         state.embeddedCounter = 0
         state.stalledCounter = 0
+        state.ladderStartTime = 0
+        state.nextLadderEscape = 0
     end
 end
 
@@ -192,7 +249,6 @@ timer.Create("botStuckDetector", 1, 0, function()
         end
 
         if bot:IsFrozen() then continue end
-        if bot:GetMoveType() == MOVETYPE_LADDER then continue end
 
         local pos = bot:GetPos()
 
@@ -201,6 +257,11 @@ timer.Create("botStuckDetector", 1, 0, function()
         end
 
         local state = stuckState[bot]
+
+        if UpdateBotLadderEscapeState(bot, state) then
+            state.lastPos = pos
+            continue
+        end
 
         local outsideWorld = not bot:IsInWorld()
 
@@ -276,6 +337,11 @@ timer.Create("plyStuckDetector", 1, 0, function()
         end
 
         local state = stuckState[ply]
+
+        if ply:IsBot() and UpdateBotLadderEscapeState(ply, state) then
+            state.lastPos = pos
+            continue
+        end
 
         local outsideWorld = not ply:IsInWorld()
         local embedded = IsPlayerEmbeddedAt(ply, pos)
