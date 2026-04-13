@@ -5,6 +5,8 @@ local SC = ZSB.StartCommand
 
 local LARGE_RANDOM_SPOT_OPTIONS = { radius = 1000000 }
 local SURVIVOR_WEAPON_CLASS_CACHE = {}
+local ZOMBIE_WANDER_REEVALUATE_MIN = 5.5
+local ZOMBIE_WANDER_REEVALUATE_MAX = 8.5
 
 local function IsMeleeWeaponClass(className)
     if not isstring(className) then
@@ -145,6 +147,10 @@ local function IsZombieExplorationEnt(bot, ent)
     return className == "prop_door_rotating" or className == "func_movelinear"
 end
 
+local function GetZombieWanderTimeout(now)
+    return (now or CurTime()) + math.Rand(ZOMBIE_WANDER_REEVALUATE_MIN, ZOMBIE_WANDER_REEVALUATE_MAX)
+end
+
 local function TrySetZombieExplorationGoal(bot, controller)
     local foundEnts = ZSB.Util:FindEnts(bot)
     if not foundEnts then
@@ -187,6 +193,8 @@ function SC.MoveWithoutTarget(bot, controller, strategy)
     end
 
     if teamId == TEAM_ZOMBIE then
+        local now = CurTime()
+
         if math.random(1, 100) <= 40 then
             if TrySetZombieExplorationGoal(bot, controller) then
                 return
@@ -195,15 +203,19 @@ function SC.MoveWithoutTarget(bot, controller, strategy)
 
         if team.NumPlayers(TEAM_SURVIVORS) > 0 then
             for _, candidate in RandomPairs(player.GetAll()) do
-                if IsValid(candidate) and candidate:Team() == TEAM_SURVIVORS then
+                if IsValid(candidate)
+                and candidate:Team() == TEAM_SURVIVORS
+                and candidate:Alive()
+                and not candidate:HasGodMode()
+                then
                     controller.PosGen = candidate:GetPos()
-                    controller.LastSegmented = CurTime() + 40
+                    controller.LastSegmented = GetZombieWanderTimeout(now)
                     break
                 end
             end
         else
             controller.PosGen = controller:FindSpot("random", LARGE_RANDOM_SPOT_OPTIONS)
-            controller.LastSegmented = CurTime() + 40
+            controller.LastSegmented = GetZombieWanderTimeout(now)
         end
     end
 end

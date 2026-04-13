@@ -3,12 +3,6 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._RetreatLoaded then
-    return
-end
-
-SM._RetreatLoaded = true
-
 local function TraceIgnoringProps(startPos, endPos, controller, bot)
     return util.TraceLine({
         start = startPos,

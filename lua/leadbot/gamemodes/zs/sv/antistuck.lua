@@ -14,8 +14,9 @@ timer.Create("zombieNearDetector", 20, 0, function()
         local botPos = bot:GetPos()
         local bestPos = controller.PosGen
         local bestDist = bestPos:DistToSqr(botPos)
+        local foundEnts = ZSB.Util:FindEnts(bot)
 
-        for _, ply in ipairs(player.GetAll()) do
+        for _, ply in ipairs(foundEnts.near["player"]) do
             if not IsValid(ply) then continue end
             if ply:Team() ~= TEAM_SURVIVORS then continue end
 

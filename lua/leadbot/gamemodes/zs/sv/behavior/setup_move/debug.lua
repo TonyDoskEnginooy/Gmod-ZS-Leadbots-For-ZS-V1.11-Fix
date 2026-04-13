@@ -3,12 +3,6 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._DebugLoaded then
-    return
-end
-
-SM._DebugLoaded = true
-
 function SM.DebugBot(bot)
     if not ZSB.DEBUG then return end
 

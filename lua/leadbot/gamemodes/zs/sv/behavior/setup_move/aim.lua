@@ -3,12 +3,6 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
-if SM._AimLoaded then
-    return
-end
-
-SM._AimLoaded = true
-
 local leadbot_skill = GetConVar("leadbot_skill")
 
 local function GetCampingLookAngles(bot, strategy)

@@ -244,7 +244,7 @@ local function GetEntityScanPoint(ent, referencePos)
 end
 
 local BOT_SCAN_RANGE = Vector(1200, 1200, 1200)
-local BOT_SCAN_DELAY = 0.32
+local BOT_SCAN_DELAY = 0.5
 local NEAR_DISTANCE = 110
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
 local FACING_DOT_THRESHOLD = 0.72
