@@ -4,7 +4,7 @@ end
 
 includeSCModule("attack.lua")
 includeSCModule("buttons.lua")
-includeSCModule("map_interactions.lua")
+includeSCModule("interactions.lua")
 includeSCModule("pos_goal_no_target.lua")
 includeSCModule("pos_goal.lua")
 includeSCModule("shared.lua")

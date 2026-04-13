@@ -133,7 +133,7 @@ local function GetZombieStage()
 end
 
 local function GetTemperamentName(bot)
-    local temperament = bot.LBConfig.temperament
+    local temperament = bot.LBConfig and bot.LBConfig.temperament
     return temperament and temperament.name or "rusher"
 end
 
