@@ -54,9 +54,7 @@ end
 function LeadBot.PostEntityTakeDamage(victim, dmgInfo, wasDamageTaken)
     local attacker = dmgInfo:GetAttacker()
 
-    if not IsKnifeDamageFromSurvivorBot(victim, attacker) then
-        return
+    if IsKnifeDamageFromSurvivorBot(victim, attacker) then
+        SpawnZombieKnifeBlood(victim, attacker, dmgInfo)
     end
-
-    SpawnZombieKnifeBlood(victim, attacker, dmgInfo)
 end
