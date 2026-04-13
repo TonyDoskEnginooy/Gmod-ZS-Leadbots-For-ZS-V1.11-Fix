@@ -3,11 +3,10 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._ZombiePropThrowLoaded then
-    return
-end
-
-SC._ZombiePropThrowLoaded = true
+local THROW_PROP_ZOMBIE_CLASSES = {
+    ["Zombie"] = true,
+    ["Poison Zombie"] = true
+}
 
 local function PlayPropThrowAnimation(bot)
     if not IsValid(bot) or not bot.DoAnimationEvent then return end
@@ -40,7 +39,7 @@ local function GetZombieClassName(bot)
 end
 
 local function CanThrowNearbyProp(bot)
-    return bot:Team() == TEAM_ZOMBIE and SC.THROW_PROP_ZOMBIE_CLASSES[GetZombieClassName(bot)] == true
+    return bot:Team() == TEAM_ZOMBIE and THROW_PROP_ZOMBIE_CLASSES[GetZombieClassName(bot)] == true
 end
 
 local function IsThrowableProp(ent)
@@ -100,8 +99,6 @@ local function SelectThrowableProp(bot, target, props)
 
     return bestProp
 end
-
-
 
 function SC.TryThrowNearbyProp(bot, controller, foundEnts)
     if not CanThrowNearbyProp(bot) then return false end

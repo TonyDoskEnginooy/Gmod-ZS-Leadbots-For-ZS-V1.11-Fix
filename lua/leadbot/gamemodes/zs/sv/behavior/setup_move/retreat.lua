@@ -22,9 +22,9 @@ local function ApplyRetreatStrafe(controller, mv, trace)
         return
     end
 
-    if controller.strafeAngle == 1 then
+    if controller.StrafeAngle == 1 then
         mv:SetSideSpeed(1500)
-    elseif controller.strafeAngle == 2 then
+    elseif controller.StrafeAngle == 2 then
         mv:SetSideSpeed(-1500)
     end
 end
@@ -40,10 +40,10 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
     if bot:Team() == TEAM_ZOMBIE then
         mv:SetForwardSpeed(1200)
 
-        if distanceSqr > 45000 and bot:LBGetZomSkill() == 1 and IsValid(trace.Entity) then
-            if controller.strafeAngle == 1 then
+        if distanceSqr > 45000 and bot:LBGetzomSkill() == 1 and IsValid(trace.Entity) then
+            if controller.StrafeAngle == 1 then
                 mv:SetSideSpeed(1500)
-            elseif controller.strafeAngle == 2 then
+            elseif controller.StrafeAngle == 2 then
                 mv:SetSideSpeed(-1500)
             end
         end
@@ -92,10 +92,10 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
             mv:SetForwardSpeed(-1200)
         end
 
-        if bot:LBGetSurvSkill() == 0 and IsValid(trace.Entity) then
-            if controller.strafeAngle == 1 then
+        if bot:LBGetsurvSkill() == 0 and IsValid(trace.Entity) then
+            if controller.StrafeAngle == 1 then
                 mv:SetSideSpeed(1500)
-            elseif controller.strafeAngle == 2 then
+            elseif controller.StrafeAngle == 2 then
                 mv:SetSideSpeed(-1500)
             end
         end
@@ -106,9 +106,9 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
     if distanceSqr <= 45000 and IsValid(trace.Entity) then
         mv:SetForwardSpeed(-1200)
 
-        if controller.strafeAngle == 1 then
+        if controller.StrafeAngle == 1 then
             mv:SetSideSpeed(1500)
-        elseif controller.strafeAngle == 2 then
+        elseif controller.StrafeAngle == 2 then
             mv:SetSideSpeed(-1500)
         end
     end
@@ -119,9 +119,9 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
             and (target:GetZombieClass() == 2 or (target:GetZombieClass() > 5 and target:GetZombieClass() < 9))
 
         if isDangerousZombie or target:IsNPC() then
-            if controller.strafeAngle == 1 then
+            if controller.StrafeAngle == 1 then
                 mv:SetSideSpeed(1500)
-            elseif controller.strafeAngle == 2 then
+            elseif controller.StrafeAngle == 2 then
                 mv:SetSideSpeed(-1500)
             end
         end

@@ -45,15 +45,15 @@ function SM.GetAimLerp(bot, controller, strategy)
     elseif conVarSkill == 2 then
         aimSkill = 12
     elseif conVarSkill == 4 then
-        aimSkill = bot:LBGetShootSkill()
+        aimSkill = bot:LBGetshootSkill()
     else
         aimSkill = 16
     end
 
     if bot:Team() == TEAM_SURVIVORS then
-        aimSkill = aimSkill + math.Clamp(math.floor(bot:LBGetShootSkill() * 0.15), 0, 3)
+        aimSkill = aimSkill + math.Clamp(math.floor(bot:LBGetshootSkill() * 0.15), 0, 3)
 
-        if bot:LBGetSurvSkill() == 1 then
+        if bot:LBGetsurvSkill() == 1 then
             aimSkill = aimSkill + 4
         end
     end
@@ -71,11 +71,12 @@ function SM.GetAimLerp(bot, controller, strategy)
     return frameTime * (aimSkill / 4), frameTime * (aimSkill / 4)
 end
 
-function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLook)
+function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, strategy)
     local now = CurTime()
     local isFrozen = bot:IsFrozen()
     local eyeAngles = bot:EyeAngles()
     local shootPos = bot:GetShootPos()
+    local lerp, lerpLook = SM.GetAimLerp(bot, controller, strategy)
 
     if IsValid(controller.Target) then
         local aimPoint = ZSB.Util:GetCombatAimPoint(bot, controller.Target)
@@ -121,7 +122,7 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, lerp, lerpLoo
         return
     end
 
-    local campingAngles = GetCampingLookAngles(bot, controller.strategy)
+    local campingAngles = GetCampingLookAngles(bot, strategy)
     if campingAngles and not isFrozen then
         bot:SetEyeAngles(campingAngles)
     end

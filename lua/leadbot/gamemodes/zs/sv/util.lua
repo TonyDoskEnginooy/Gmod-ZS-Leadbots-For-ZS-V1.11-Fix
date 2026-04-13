@@ -157,7 +157,7 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
             end
         end
 
-        local shootSkill = math.max(attacker:LBGetShootSkill(), 1)
+        local shootSkill = math.max(attacker:LBGetshootSkill(), 1)
         local normalizedSkill = math.Clamp((shootSkill - 1) / 5, 0, 1)
         local jitterRadius = 10 - normalizedSkill * 4
 

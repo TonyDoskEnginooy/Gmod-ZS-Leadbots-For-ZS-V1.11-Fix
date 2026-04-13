@@ -24,10 +24,26 @@ local function SetBaseForwardSpeed(bot, controller, mv)
     mv:SetForwardSpeed(1200)
 end
 
+local function ShouldRecomputePath(controller)
+    if not isvector(controller.PosGen) then
+        return false
+    end
+
+    if controller.TPos ~= controller.PosGen then
+        return true
+    end
+
+    if not controller.Path or not controller.Path.IsValid then
+        return true
+    end
+
+    return not controller.Path:IsValid()
+end
+
 local function ForceControllerRecompute(controller)
-    if controller.PosGen and controller.P and controller.TPos ~= controller.PosGen then
+    if ShouldRecomputePath(controller) then
         controller.TPos = controller.PosGen
-        controller.P:Compute(controller, controller.PosGen)
+        controller:ComputePath()
     end
 end
 
@@ -44,18 +60,15 @@ local function UpdateControllerTransform(bot, controller)
     end
 end
 
-function SM.EnsureControllerState(controller)
-    controller.LastSegmented = controller.LastSegmented or 0
-    controller.NextJump = controller.NextJump or 0
-    controller.NextCenter = controller.NextCenter or 0
-    controller.nextStuckJump = controller.nextStuckJump or 0
-    controller.NextRandomJump = controller.NextRandomJump or 0
-    controller.LastStairTime = controller.LastStairTime or 0
-    controller.strafeAngle = controller.strafeAngle or 1
-    controller.LookAtTime = controller.LookAtTime or 0
-    controller.cur_segment = controller.cur_segment or 2
-    controller.MeleeRetreatUntil = controller.MeleeRetreatUntil or 0
-    controller.LastMeleeAttackTime = controller.LastMeleeAttackTime or 0
+function SM.ClearCompletedGoal(controller)
+    controller.PosGen = nil
+    controller.TPos = nil
+    controller.IsTraversingStairs = false
+    controller.LastSegmented = 0
+    controller.CurSegmentIndex = 2
+    controller.GoalPos = vector_origin
+    controller.NextStrafe = 0
+    controller.StrafeAngle = 0
 end
 
 function SM.PrepareControllerForMove(bot, controller, mv)

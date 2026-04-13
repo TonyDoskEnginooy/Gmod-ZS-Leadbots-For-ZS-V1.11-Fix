@@ -94,7 +94,7 @@ function LeadBot.Botize(ply, togg)
     ply.BotColor = ply:GetPlayerColor()
     ply.BotSkin = ply:GetSkin()
     ply.BotModel = ply:GetModel()
-    ply.BotWColor = ply:GetWeaponColor()
+    ply.BotWColor = ply:GetweaponColor()
 
     local controller = ents.Create("leadbot_navigator")
     if not IsValid(controller) then
@@ -112,16 +112,16 @@ function LeadBot.Botize(ply, togg)
     ply.CurSegment = 2
 
     if GetConVar("leadbot_strategy"):GetBool() then
-        ply.BotStrategy = math.random(0, LeadBot.Strategies)
+        ply.LBConfig.strategy = math.random(0, LeadBot.Strategies)
     else
-        ply.BotStrategy = nil
+        ply.LBConfig.strategy = nil
     end
 
-    ply.LeadBot_Config = {
+    ply.LBConfig = {
         model = ply.BotModel,
         color = ply.BotColor,
-        weaponcolor = ply.BotWColor,
-        strategy = ply.BotStrategy
+        weaponColor = ply.BotWColor,
+        strategy = ply.LBConfig.strategy
     }
 
     return true

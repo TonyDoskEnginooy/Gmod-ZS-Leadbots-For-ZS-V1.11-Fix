@@ -13,7 +13,7 @@ function SM.DebugBot(bot)
 end
 
 function SM.DebugPath(controller)
-    if ZSB.DEBUG and controller.P then
-        controller.P:Draw()
-    end
+    if not ZSB.DEBUG then return end
+
+    controller.Path:Draw()
 end

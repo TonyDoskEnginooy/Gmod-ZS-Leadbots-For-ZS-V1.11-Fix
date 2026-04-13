@@ -4,7 +4,7 @@ local oldGetInfo = player_meta.GetInfo
 local DEFAULT_COLOR = Vector(0, 0, 0)
 
 local function GetConfigValue(ply, key, defaultValue)
-    local cfg = ply.LeadBot_Config
+    local cfg = ply.LBConfig
     if not cfg then
         return defaultValue
     end
@@ -29,25 +29,25 @@ function player_meta:LBGetStrategy()
     return GetConfigValue(self, "strategy", 0)
 end
 
-function player_meta:LBGetSurvSkill()
-    return GetConfigValue(self, "survskill", 0)
+function player_meta:LBGetsurvSkill()
+    return GetConfigValue(self, "survSkill", 0)
 end
 
-function player_meta:LBGetZomSkill()
-    return GetConfigValue(self, "zomskill", 0)
+function player_meta:LBGetzomSkill()
+    return GetConfigValue(self, "zomSkill", 0)
 end
 
-function player_meta:LBGetShootSkill()
-    return GetConfigValue(self, "shootskill", 0)
+function player_meta:LBGetshootSkill()
+    return GetConfigValue(self, "shootSkill", 0)
 end
 
 function player_meta:LBGetModel()
     return GetConfigValue(self, "model", "kleiner")
 end
 
-function player_meta:LBGetColor(isWeaponColor)
-    if isWeaponColor then
-        return GetConfigValue(self, "weaponcolor", DEFAULT_COLOR)
+function player_meta:LBGetColor(isweaponColor)
+    if isweaponColor then
+        return GetConfigValue(self, "weaponColor", DEFAULT_COLOR)
     end
 
     return GetConfigValue(self, "color", DEFAULT_COLOR)
@@ -59,7 +59,7 @@ function player_meta:GetInfo(convar)
             return self:LBGetModel()
         elseif convar == "cl_playercolor" then
             return self:LBGetColor()
-        elseif convar == "cl_weaponcolor" then
+        elseif convar == "cl_weaponColor" then
             return self:LBGetColor(true)
         else
             return ""

@@ -1,16 +1,22 @@
-local function includeStartCommandModule(fileName)
+local function includeSCModule(fileName)
     include("start_command/" .. fileName)
 end
 
-includeStartCommandModule("shared.lua")
-includeStartCommandModule("zombie_targeting.lua")
-includeStartCommandModule("zombie_prop_throw.lua")
-includeStartCommandModule("map_interactions.lua")
-includeStartCommandModule("survivor_breaking.lua")
-includeStartCommandModule("movement_to_sigil.lua")
-includeStartCommandModule("movement_without_target.lua")
-includeStartCommandModule("combat_buttons.lua")
-includeStartCommandModule("survival_weapon_selection.lua")
+includeSCModule("attack.lua")
+includeSCModule("buttons.lua")
+includeSCModule("map_interactions.lua")
+includeSCModule("pos_goal_no_target.lua")
+includeSCModule("pos_goal.lua")
+includeSCModule("shared.lua")
+includeSCModule("survivor_destruction.lua")
+includeSCModule("survivor_weapon.lua")
+includeSCModule("target_obstacle.lua")
+includeSCModule("target.lua")
+includeSCModule("zombie_destruction.lua")
+includeSCModule("zombie_prop_throw.lua")
+
+ZSB = ZSB or {}
+ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
@@ -21,7 +27,21 @@ function LeadBot.StartCommand(bot, cmd)
     local now = CurTime()
     local teamId = bot:Team()
 
-    SC.EnsureControllerState(controller)
+    SC.StartStair(bot, controller, now)
+
+    if controller.Path then
+        local segments = controller.Path:GetAllSegments()
+        
+        if segments then
+            local currentGoal = controller.PosGen and segments[controller.CurSegmentIndex] or nil
+
+            if currentGoal then
+                SC.HandleJump(bot, controller, currentGoal, now)
+                SC.HandleCrouch(bot, controller, currentGoal, now)
+            end
+        end
+    end
+
     SC.KillLonelyHordeBot(bot)
     SC.ForgetInvalidTarget(bot, controller)
 
@@ -30,7 +50,7 @@ function LeadBot.StartCommand(bot, cmd)
     SC.ToggleMovingBrush(bot, foundEnts.near["func_movelinear"])
 
     if teamId == TEAM_SURVIVORS then
-        SC.SetRoamState(bot, now)
+        SC.SetRoamState(bot)
         SC.AcquireTemperamentTarget(bot, controller, foundEnts)
 
         if not IsValid(controller.Target) then

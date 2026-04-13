@@ -9,13 +9,13 @@ local function ScaleBulletSpread(spread, scale)
 end
 
 local function GetBotSpreadScale(bot, weapon, targetPos)
-    local shootSkill = math.max(bot:LBGetShootSkill(), 1)
+    local shootSkill = math.max(bot:LBGetshootSkill(), 1)
     local normalizedSkill = math.Clamp((shootSkill - 1) / 5, 0, 1)
 
     -- Higher base spread and a smaller reward from skill.
     local scale = 1.28 - normalizedSkill * 0.18
 
-    if bot:LBGetSurvSkill() == 1 then
+    if bot:LBGetsurvSkill() == 1 then
         -- Keep better survivors slightly tighter, but not laser-accurate.
         scale = scale * 0.96
     end

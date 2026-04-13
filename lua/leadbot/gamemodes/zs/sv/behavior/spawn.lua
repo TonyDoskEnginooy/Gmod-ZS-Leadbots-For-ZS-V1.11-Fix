@@ -133,7 +133,7 @@ local function GetZombieStage()
 end
 
 local function GetTemperamentName(bot)
-    local temperament = bot.LeadBot_Temperament
+    local temperament = bot.LBConfig.temperament
     return temperament and temperament.name or "rusher"
 end
 
@@ -374,16 +374,7 @@ local function ResetControllerAfterSpawn(bot)
         return
     end
 
-    controller.Target = nil
-    controller.PosGen = nil
-    controller.TPos = nil
-    controller.LastSegmented = 0
-    controller.cur_segment = 2
-    controller.LookAtTime = 0
-    controller.NextCenter = 0
-    controller.NextJump = 0
-    controller.RecentCloseThreat = nil
-    controller.RecentCloseThreatUntil = 0
+    controller:Reset()
 
     if ZSB and ZSB.StartCommand and ZSB.StartCommand.ClearObstacleTargetState then
         ZSB.StartCommand.ClearObstacleTargetState(controller)

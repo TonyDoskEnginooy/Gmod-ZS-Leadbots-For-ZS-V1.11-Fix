@@ -190,13 +190,6 @@ local function PickTemperament()
     return table.Copy(TEMPERAMENTS[1])
 end
 
-local function EnsureTemperament(bot)
-    if bot.LeadBot_Temperament then return end
-
-    bot.LeadBot_Temperament = PickTemperament()
-    bot.LeadBot_PersonalitySeed = math.Rand(1, 100000)
-end
-
 local function SplitCSV(str)
     local values = {}
 
@@ -274,7 +267,7 @@ local function IsModelNameTaken(modelName)
     for _, ply in ipairs(player.GetBots()) do
         local nick = string.lower(ply:Nick())
 
-        if ply.OriginalName == modelName then
+        if ply.LBConfig and ply.LBConfig.OriginalName == modelName then
             return true
         end
 
@@ -356,19 +349,19 @@ end
 
 local function GetBotName()
     local generated
-    local original_name
+    local originalName
 
     local customNames = SplitCSV(leadbot_names and leadbot_names:GetString() or "")
     if #customNames > 0 then
         generated = table.Random(customNames)
     else
-        original_name = GetRandomModelName(true)
-        generated = FormatBotName(original_name)
+        originalName = GetRandomModelName(true)
+        generated = FormatBotName(originalName)
     end
 
     generated = (leadbot_name_prefix and leadbot_name_prefix:GetString() or "") .. (generated or "Leadbot")
 
-    return LeadBot.Prefix .. generated, original_name
+    return LeadBot.Prefix .. generated, originalName
 end
 
 local function GetBotModel()
@@ -377,15 +370,15 @@ end
 
 local function GetBotColors()
     local color = Vector(-1, -1, -1)
-    local weaponcolor = Vector(0.30, 1.80, 2.10)
+    local weaponColor = Vector(0.30, 1.80, 2.10)
 
     local botcolor = ColorRand()
-    local botweaponcolor = ColorRand()
+    local botweaponColor = ColorRand()
 
     color = Vector(botcolor.r / 255, botcolor.g / 255, botcolor.b / 255)
-    weaponcolor = Vector(botweaponcolor.r / 255, botweaponcolor.g / 255, botweaponcolor.b / 255)
+    weaponColor = Vector(botweaponColor.r / 255, botweaponColor.g / 255, botweaponColor.b / 255)
 
-    return color, weaponcolor
+    return color, weaponColor
 end
 
 function LeadBot.AddBotOverride(bot)
@@ -409,13 +402,13 @@ function LeadBot.AddBot()
 
     ForceNavGeneration()
 
-    local name, original_name = GetBotName()
-    local model = original_name or GetBotModel()
-    local color, weaponcolor = GetBotColors()
+    local name, originalName = GetBotName()
+    local model = originalName or GetBotModel()
+    local color, weaponColor = GetBotColors()
     local strategy = 0
-    local survskill = math.random(0, 1)
-    local zomskill = math.random(0, 1)
-    local shootskill = survskill == 1 and math.random(3, 6) or math.random(1, 3)
+    local survSkill = math.random(0, 1)
+    local zomSkill = math.random(0, 1)
+    local shootSkill = survSkill == 1 and math.random(3, 6) or math.random(1, 3)
 
     local bot = player.CreateNextBot(name)
     if not IsValid(bot) then
@@ -429,20 +422,17 @@ function LeadBot.AddBot()
 
     bot.freeRoam = true
 
-    bot.LeadBot_Config = {
+    bot.LBConfig = {
         model = model,
         color = color,
-        weaponcolor = weaponcolor,
+        weaponColor = weaponColor,
         strategy = strategy,
-        survskill = survskill,
-        zomskill = zomskill,
-        shootskill = shootskill
+        survSkill = survSkill,
+        zomSkill = zomSkill,
+        shootSkill = shootSkill,
+        personalitySeed = math.Rand(1, 100000),
+        temperament = PickTemperament(),
     }
-
-    bot.BotStrategy = strategy
-    bot.OriginalName = original_name
-
-    EnsureTemperament(bot)
 
     local controller = ents.Create("leadbot_navigator")
     if IsValid(controller) then

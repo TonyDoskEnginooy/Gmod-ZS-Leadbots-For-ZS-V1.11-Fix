@@ -82,7 +82,6 @@ local function ComputePathCost(bot, area, fromArea, ladder, elevator, length)
     end
 
     if IsValid(ladder) then
-		print(ladder, "AQUI")
         cost = cost + GetLadderCostAdjustment(bot, fromArea, ladder)
     elseif isvector(bot.PosGen) then
         local currentGap = math.abs(bot.PosGen.z - fromArea:GetCenter().z)
@@ -94,6 +93,8 @@ local function ComputePathCost(bot, area, fromArea, ladder, elevator, length)
         end
     end
 
+    cost = cost
+
     return cost
 end
 
@@ -103,24 +104,53 @@ function ENT:Initialize()
 	self:SetModel("models/player.mdl")
 	self:SetNoDraw(not GetConVar("developer"):GetBool())
 	self:SetSolid(SOLID_NONE)
-
-	self.PosGen = nil
-	self.NextJump = -1
-	self.NextDuck = 0
-	self.cur_segment = 2
-	self.Target = nil
-	self.LastSegmented = 0
-	self.ForgetTarget = 0
-	self.NextCenter = 0
-	self.LookAt = angle_zero
-	self.LookAtTime = 0
-	self.goalPos = vector_origin
-	self.strafeAngle = 0
-	self.nextStuckJump = 0
+	self:Reset()
 
 	if LeadBot and LeadBot.AddControllerOverride then
 		LeadBot.AddControllerOverride(self)
 	end
+end
+
+function ENT:Reset()
+    self.Path = nil -- Path object
+    self.PosGen = nil -- Final Path pos
+    self.GoalPos = vector_origin -- Current pos in the path to self.PosGen
+    self.Target = nil
+	self.ForgetTarget = 0
+    self.TPos = nil
+    self.LastSegmented = 0
+    self.CurSegmentIndex = 2
+	self.LookAt = angle_zero
+    self.LookAtTime = 0
+
+    self.NextStrafe = 0
+    self.NextJump = -1
+	self.NextStuckJump = -1
+	self.NextRandomJump = 0
+	self.NextDuck = 0
+	self.StrafeAngle = 0
+    self.IsTraversingStairs = false
+    self.LastStairTime = 0
+
+    self.ForceLadderExitUntil = 0
+
+    self.RecentCloseThreat = nil
+    self.RecentCloseThreatUntil = 0
+    self.ConserveAmmoWithKnife = false
+    self.MeleeRetreatUntil = 0
+
+    self.ObstacleSwingCount = 0
+    self.ObstacleSwingLimit = 0
+    self.NextObstacleSwingCount = 0
+    self.ActiveObstacleTarget = nil
+    self.ObstacleTargetSince = 0
+    self.LastObstacleTarget = 0
+    self.ObstacleTargetRetryUntil = 0
+
+    self.NextSurvivorBreakAttempt = 0
+    self.NextPropThrow = 0
+
+    self.NextPoisonZombieThrow = 0
 end
 
 function ENT:CreatePath()
@@ -135,24 +165,24 @@ function ENT:ComputePath()
 		return false
 	end
 
-	self.P = self.P or self:CreatePath()
+	self.Path = self.Path or self:CreatePath()
 
-	self.P:Compute(self, self.PosGen, function(area, fromArea, ladder, elevator, length)
+	self.Path:Compute(self, self.PosGen, function(area, fromArea, ladder, elevator, length)
 		return ComputePathCost(self, area, fromArea, ladder, elevator, length)
 	end)
 
-	if not self.P:IsValid() then
+	if not self.Path:IsValid() then
 		return false
 	end
 
-	self.cur_segment = 2
+	self.CurSegmentIndex = 2
 	return true
 end
 
 function ENT:ChasePos()
 	while self.PosGen do
 		self:ComputePath()
-		coroutine.wait(1)
+		coroutine.wait(math.Rand(1, 1.5))
 	end
 end
 

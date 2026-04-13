@@ -4,7 +4,7 @@ timer.Create("zombieNearDetector", 20, 0, function()
     for _, bot in ipairs(player.GetBots()) do
         if not IsValid(bot) then continue end
         if bot:Team() ~= TEAM_ZOMBIE then continue end
-        if bot:LBGetZomSkill() ~= 1 then continue end
+        if bot:LBGetzomSkill() ~= 1 then continue end
 
         local controller = bot.ControllerBot
         if not controller then continue end
@@ -188,7 +188,7 @@ local function ResetBotPath(controller)
     controller.Target = nil
     controller.PosGen = nil
     controller.LastSegmented = 0
-    controller.NextCenter = 0
+    controller.NextStrafe = 0
     controller.NextJump = 0
 end
 

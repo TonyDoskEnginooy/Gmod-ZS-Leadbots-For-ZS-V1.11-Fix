@@ -3,31 +3,13 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._ZombieTargetingLoaded then
-    return
-end
-
-SC._ZombieTargetingLoaded = true
-
 local CLOSE_THREAT_DISTANCE_SQR = 220 * 220
 local FACING_THREAT_DISTANCE_SQR = 320 * 320
 local RECENT_THREAT_DISTANCE_SQR = 260 * 260
+local SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR = 180 * 180
 
-function SC.IsFragileMapBreakable(ent)
-    if not IsValid(ent) or ent:GetClass() ~= "func_breakable" then
-        return false
-    end
-
-    if not ZSB.Map:GetValue("zombieBreakCheck") then
-        return false
-    end
-
-    if not ent.GetMaxHealth then
-        return true
-    end
-
-    return ent:GetMaxHealth() <= 500
-end
+local NEXT_TARGET_LOAD_REFRESH = 0
+local TARGET_LOAD = setmetatable({}, { __mode = "k" })
 
 local function IsEnemyCandidate(bot, ent)
     if not IsValid(ent) or ent == bot then return false end
@@ -51,13 +33,13 @@ local function ShouldAvoidChemZombie(bot, ent)
 end
 
 local function ClearTargetLoad()
-    for ent in pairs(SC.TARGET_LOAD) do
-        SC.TARGET_LOAD[ent] = nil
+    for ent in pairs(TARGET_LOAD) do
+        TARGET_LOAD[ent] = nil
     end
 end
 
 local function RefreshTargetLoad()
-    if SC.NEXT_TARGET_LOAD_REFRESH > CurTime() then return end
+    if NEXT_TARGET_LOAD_REFRESH > CurTime() then return end
 
     ClearTargetLoad()
 
@@ -66,15 +48,15 @@ local function RefreshTargetLoad()
             local controller = ply:GetController()
 
             if IsValid(controller) and IsValid(controller.Target) then
-                SC.TARGET_LOAD[controller.Target] = (SC.TARGET_LOAD[controller.Target] or 0) + 1
+                TARGET_LOAD[controller.Target] = (TARGET_LOAD[controller.Target] or 0) + 1
             end
         end
     end
 
-    SC.NEXT_TARGET_LOAD_REFRESH = CurTime() + 0.2
+    NEXT_TARGET_LOAD_REFRESH = CurTime() + 0.2
 end
 
-local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
+local function ScoreTarget(bot, controller, target, sourceTag)
     if not IsEnemyCandidate(bot, target) or ShouldAvoidChemZombie(bot, target) then
         return nil
     end
@@ -104,7 +86,7 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
         score = score + temperament.holdBonus
     end
 
-    local load = SC.TARGET_LOAD[target] or 0
+    local load = TARGET_LOAD[target] or 0
 
     if target == controller.Target and load > 0 then
         load = load - 1
@@ -118,36 +100,6 @@ local function ScoreZombieEnemyTarget(bot, controller, target, sourceTag)
 
     score = score - (load * loadPenalty)
     score = score + SC.StableNoise(bot, target, temperament.imperfection)
-
-    return score
-end
-
-local function ScoreZombieObstacleTarget(bot, controller, target)
-    if not ZSB.Map:GetValue("zombiePropCheck", false) then
-        return false
-    end
-
-    if not SC.IsSimpleObstacleTarget(bot, target) then
-        return nil
-    end
-
-    if target == controller.LastObstacleTarget and controller.ObstacleTargetRetryUntil > CurTime() then
-        return nil
-    end
-
-    local temperament = SC.GetTemperament(bot)
-    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
-    local score = 140 + temperament.obstacleBias + SC.GetDistanceScore(distanceSqr)
-
-    if target == controller.Target then
-        score = score + math.floor(temperament.holdBonus * 0.4)
-    end
-
-    if IsValid(controller.Target) and (controller.Target:IsPlayer() or controller.Target:IsNPC()) then
-        score = score - 450
-    end
-
-    score = score + SC.StableNoise(bot, target, math.floor(temperament.imperfection * 0.4))
 
     return score
 end
@@ -168,7 +120,7 @@ local function ConsiderBestTarget(bot, controller, state, list, sourceTag, score
 end
 
 local function ScoreEmergencySurvivorThreat(bot, controller, target, sourceTag)
-    if not SC.IsZombiePlayerEnemy(bot, target) or ShouldAvoidChemZombie(bot, target) then
+    if not SC.IsValidEnemyZombie(bot, target) or ShouldAvoidChemZombie(bot, target) then
         return nil
     end
 
@@ -211,6 +163,36 @@ local function ScoreEmergencySurvivorThreat(bot, controller, target, sourceTag)
     return score
 end
 
+function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
+    if IsValid(SC.GetRecentCloseThreat(controller)) then
+        return true
+    end
+
+    local nearPlayers = foundEnts and foundEnts.near and foundEnts.near["player"] or nil
+
+    if SC.HasEntries(nearPlayers) then
+        for _, target in ipairs(nearPlayers) do
+            if SC.IsValidEnemyZombie(bot, target) then
+                return true
+            end
+        end
+    end
+
+    local facingPlayers = foundEnts and foundEnts.facing and foundEnts.facing["player"] or nil
+
+    if SC.HasEntries(facingPlayers) then
+        for _, target in ipairs(facingPlayers) do
+            if SC.IsValidEnemyZombie(bot, target)
+                and bot:GetPos():DistToSqr(target:GetPos()) <= SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR
+            then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 function SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
     if bot:Team() ~= TEAM_SURVIVORS then
         return nil
@@ -238,6 +220,48 @@ function SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
     return state.bestTarget
 end
 
+function SC.SetRecentCloseThreat(controller, target, duration)
+    if not IsValid(controller) then
+        return
+    end
+
+    if not IsValid(target) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return
+    end
+
+    controller.RecentCloseThreat = target
+    controller.RecentCloseThreatUntil = CurTime() + math.max(duration or 0, 0)
+end
+
+function SC.GetRecentCloseThreat(controller)
+    if not IsValid(controller) then
+        return nil
+    end
+
+    if (controller.RecentCloseThreatUntil or 0) < CurTime() then
+        controller.RecentCloseThreat = nil
+        return nil
+    end
+
+    local target = controller.RecentCloseThreat
+
+    if not IsValid(target) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return nil
+    end
+
+    if target:IsPlayer() and (not target:Alive() or target:Health() < 1) then
+        controller.RecentCloseThreat = nil
+        controller.RecentCloseThreatUntil = 0
+        return nil
+    end
+
+    return target
+end
+
 function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     RefreshTargetLoad()
 
@@ -256,20 +280,13 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
         bestTarget = nil
     }
 
-    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreZombieEnemyTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreZombieEnemyTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreZombieEnemyTarget)
-
-    if not IsValid(state.bestTarget) and bot:Team() == TEAM_ZOMBIE then
-        ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable"], "func_breakable", ScoreZombieObstacleTarget)
-        ConsiderBestTarget(bot, controller, state, foundEnts.near["func_physbox"], "func_physbox", ScoreZombieObstacleTarget)
-        ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_physics"], "prop_physics", ScoreZombieObstacleTarget)
-        ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_dynamic"], "prop_dynamic", ScoreZombieObstacleTarget)
-    end
+    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreTarget)
 
     if IsValid(state.bestTarget) then
-        ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreZombieEnemyTarget)
-        ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreZombieEnemyTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreTarget)
+        ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreTarget)
     end
 
     if IsValid(state.bestTarget) then
@@ -278,48 +295,38 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     end
 end
 
-function SC.IsSimpleObstacleTarget(_, ent)
-    if not IsValid(ent) then return false end
+function SC.ForgetInvalidTarget(bot, controller)
+    local target = controller.Target
 
-    local class = ent:GetClass()
-
-    if class == "func_breakable" or class == "func_physbox" then
-        if ent.GetMaxHealth and ent:GetMaxHealth() > 1 then
-            return true
-        end
-
-        return class == "func_breakable" and SC.IsFragileMapBreakable(ent)
+    if not IsValid(target) then
+        SC.ClearObstacleTargetState(controller)
+        return
     end
 
-    if class == "func_breakable_surf" then
-        return true
+    local targetIsLivingActor = target:IsPlayer() or target:IsNPC()
+
+    if controller.ForgetTarget < CurTime()
+    or (targetIsLivingActor and target:Health() < 1)
+    or (target:IsPlayer() and target:HasGodMode())
+    or not ZSB.Util:CanPerceiveTarget(bot, target) then
+        controller.Target = nil
+        controller.LookAtTime = 0
+        SC.ClearObstacleTargetState(controller)
+        SC.ClearGoal(controller)
+        return
     end
 
-    if class == "prop_physics" then
-        if not ent.GetMaxHealth then
-            return false
-        end
-
-        local model = ent:GetModel()
-
-        if SC.IsIgnoredPropModel(model) then
-            return false
-        end
-
-        if SC.IsBoardModel(model) then
-            return SC.IsMapBoardEntity(ent)
-        end
-
-        return true
+    if not SC.IsSimpleObstacleTarget(bot, target) then
+        SC.ClearObstacleTargetState(controller)
+        return
     end
 
-    if class == "prop_dynamic" then
-        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    if controller.ActiveObstacleTarget ~= target then
+        SC.BeginObstacleTarget(controller, target)
+        return
     end
 
-    if class == "func_physbox" then
-        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    if controller.ObstacleTargetSince + SC.OBSTACLE_TARGET_TIMEOUT < CurTime() then
+        SC.MarkObstacleTargetTimedOut(controller, target)
     end
-
-    return false
 end

@@ -7,7 +7,6 @@ local SURVIVOR_BREAK_DECISION_CHANCE = 35
 local SURVIVOR_BREAK_DECISION_MIN_DELAY = 0.45
 local SURVIVOR_BREAK_DECISION_MAX_DELAY = 0.9
 local SURVIVOR_BREAK_MAX_DISTANCE_SQR = 480 * 480
-local SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR = 180 * 180
 local SURVIVOR_BREAK_MELEE_DISTANCE_SQR = 82 * 82
 
 local function HasMapOwnership(ent)
@@ -149,36 +148,6 @@ function SC.ShouldSwingAtSurvivorBreakTarget(bot, controller, target)
     return true
 end
 
-local function HasImmediateZombieThreat(bot, controller, foundEnts)
-    if IsValid(SC.GetRecentCloseThreat(controller)) then
-        return true
-    end
-
-    local nearPlayers = foundEnts and foundEnts.near and foundEnts.near["player"] or nil
-
-    if SC.HasEntries(nearPlayers) then
-        for _, target in ipairs(nearPlayers) do
-            if SC.IsZombiePlayerEnemy(bot, target) then
-                return true
-            end
-        end
-    end
-
-    local facingPlayers = foundEnts and foundEnts.facing and foundEnts.facing["player"] or nil
-
-    if SC.HasEntries(facingPlayers) then
-        for _, target in ipairs(facingPlayers) do
-            if SC.IsZombiePlayerEnemy(bot, target)
-                and bot:GetPos():DistToSqr(target:GetPos()) <= SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR
-            then
-                return true
-            end
-        end
-    end
-
-    return false
-end
-
 local function ScoreSurvivorBreakTarget(bot, controller, target, sourceTag)
     if not SC.IsSurvivorBreakTarget(bot, target) then
         return nil
@@ -264,7 +233,7 @@ function SC.AcquireSurvivorBreakTarget(bot, controller, foundEnts)
         or not ZSB.Map:GetValue("survivorBreak")
         or not HasSurvivorMeleeWeapon(bot)
         or bot:Health() <= 25
-        or HasImmediateZombieThreat(bot, controller, foundEnts)
+        or SC.HasImmediateZombieThreat(bot, controller, foundEnts)
     then
         return nil
     end
