@@ -131,7 +131,6 @@ function SM.UpdateMovement(bot, controller, mv)
         AdvanceSegment(bot, controller, segments)
 
     if reachedFinalGoal and not hasTarget or not currentGoal then
-        print("2")
         HandleStop(mv, controller)
         return nil, nil
     end

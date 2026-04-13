@@ -10,7 +10,7 @@ end
 
 local function GetBotSpreadScale(bot, weapon, targetPos)
     local shootSkill = math.max(bot:LBGetshootSkill(), 1)
-    local normalizedSkill = math.Clamp((shootSkill - 1) / 5, 0, 1)
+    local normalizedSkill = math.Clamp((shootSkill - 1) / 7, 0, 1)
 
     -- Higher base spread and a smaller reward from skill.
     local scale = 1.28 - normalizedSkill * 0.18

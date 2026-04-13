@@ -408,7 +408,7 @@ function LeadBot.AddBot()
     local strategy = 0
     local survSkill = math.random(0, 1)
     local zomSkill = math.random(0, 1)
-    local shootSkill = survSkill == 1 and math.random(3, 6) or math.random(1, 3)
+    local shootSkill = survSkill == 1 and math.random(3, 7) or math.random(1, 5)
 
     local bot = player.CreateNextBot(name)
     if not IsValid(bot) then
