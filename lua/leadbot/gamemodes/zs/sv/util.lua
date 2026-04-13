@@ -245,6 +245,8 @@ end
 
 local BOT_SCAN_RANGE = Vector(1200, 1200, 1200)
 local BOT_SCAN_DELAY = 0.5
+local BOT_SCAN_JITTER_MIN = -0.1
+local BOT_SCAN_JITTER_MAX = 0.1
 local NEAR_DISTANCE = 110
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
 local FACING_DOT_THRESHOLD = 0.72
@@ -332,7 +334,7 @@ function ZSB.Util:FindEnts(bot)
     end
 
     nextBotEntsScan[bot] = {
-        next = now + BOT_SCAN_DELAY,
+        next = now + BOT_SCAN_DELAY + math.Rand(BOT_SCAN_JITTER_MIN, BOT_SCAN_JITTER_MAX),
         foundEnts = foundEnts
     }
 
