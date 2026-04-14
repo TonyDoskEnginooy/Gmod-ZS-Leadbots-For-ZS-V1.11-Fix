@@ -168,8 +168,8 @@ local function GetDistributedZombiePressurePos(bot, now)
     end
 
     local seed = bot.LBConfig.personalitySeed or bot:EntIndex() or 1
-    local timeBucket = math.floor((now or CurTime()) * 0.65)
-    local index = ((seed + timeBucket) % #zombieList) + 1
+    local timeBucket = math.floor(now * 0.65)
+    local index =  math.floor(((seed + timeBucket) % #zombieList) + 1)
     local target = zombieList[index]
 
     if not IsValid(target) then
