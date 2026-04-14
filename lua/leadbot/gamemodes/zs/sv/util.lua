@@ -227,7 +227,7 @@ local BOT_SCAN_JITTER_MIN = -0.1
 local BOT_SCAN_JITTER_MAX = 0.1
 local NEAR_DISTANCE = 250
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
-local FACING_DISTANCE = MAX_SCAN_RANGE
+local FACING_DISTANCE = 1200
 local FACING_DISTANCE_SQR = FACING_DISTANCE * FACING_DISTANCE
 
 local entsFindInBox = ents.FindInBox
@@ -363,6 +363,6 @@ function ZSB.Util:FindEnts(bot)
         next = now + BOT_SCAN_DELAY + math.Rand(BOT_SCAN_JITTER_MIN, BOT_SCAN_JITTER_MAX),
         foundEnts = foundEnts
     }
---PrintTable(foundEnts)
+
     return foundEnts
 end

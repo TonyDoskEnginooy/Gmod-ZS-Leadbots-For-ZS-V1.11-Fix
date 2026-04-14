@@ -206,7 +206,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     end
 
     -- Anchored survivor strategies.
-    if strategy >= 1 and strategy <= 3 and ZSB.Util:Odds(10) then
+    if strategy >= 1 and strategy <= 3 and ZSB.Util:Odds(13) then
         local campingSpot = GetSurvivorCampingSpot(strategy)
 
         if campingSpot then

@@ -226,7 +226,7 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
         end
 
         local chance = math.random(1, 100)
-        local extraScan = chance <= 20 and "near" or chance <= 7 and "area"
+        local extraScan = chance <= 20 and "near" or chance <= 5 and "area"
 
         if extraScan then
             AddCandidateBonus(candidateSources, foundEnts[extraScan]["player"], SOURCE_AREA_PLAYER)
