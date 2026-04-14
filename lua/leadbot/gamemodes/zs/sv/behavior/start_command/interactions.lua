@@ -3,7 +3,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-local STAIR_EXIT_GRACE = 0.45
 local STUCK_JUMP_MIN = 0.35
 local STUCK_JUMP_MAX = 0.85
 local RANDOM_JUMP_MIN = 1.8
@@ -44,33 +43,6 @@ local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
 end
 
-function SC.StartStair(bot, controller, now)
-    local isStairs = controller.IsTraversingStairs 
-
-    if isStairs then
-        controller.LastStairTime = now
-    end
-
-    local usingStairs = isStairs or (controller.LastStairTime + STAIR_EXIT_GRACE > now)
-
-    if usingStairs then
-        controller.NextStrafe = 0
-        controller.NextJump = -1
-    end
-
-    if not usingStairs and bot:GetVelocity():Length2DSqr() <= 225 and not isFrozen and not hasTarget then
-        if controller.NextStuckJump < now then
-            if not bot:Crouching() then
-                controller.NextJump = 0
-            end
-
-            controller.NextStuckJump = now + math.Rand(1, 2)
-        end
-    end
-
-    return usingStairs
-end
-
 function SC.HandleJump(bot, controller, currentGoal, now)
     local isJumpArea = AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
 
@@ -87,19 +59,6 @@ function SC.HandleJump(bot, controller, currentGoal, now)
     local hasTarget = IsValid(controller.Target)
 
     if controller.NextJump ~= 0 then
-        local hasGoal = hasTarget or isvector(controller.PosGen)
-        local heightToGoal = currentGoal.pos.z - bot:GetPos().z
-
-        if heightToGoal > 20
-            or (hasGoal
-                and speed2DSqr <= 225
-                and controller.NextStuckJump < now
-            )
-        then
-            controller.NextStuckJump = now + math.Rand(STUCK_JUMP_MIN, STUCK_JUMP_MAX)
-            return
-        end
-
         if AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP) then
             return
         end

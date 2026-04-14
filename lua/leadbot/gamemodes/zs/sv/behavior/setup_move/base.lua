@@ -63,7 +63,6 @@ end
 function SM.ClearCompletedGoal(controller)
     controller.PosGen = nil
     controller.TPos = nil
-    controller.IsTraversingStairs = false
     controller.LastSegmented = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin

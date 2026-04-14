@@ -7,21 +7,9 @@ local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
 end
 
-local function IsStairSegment(bot, segments, segmentIndex)
-    local currentGoal = segments[segmentIndex]
-
-    if not currentGoal then return false end
-
-    if AreaHasAttribute(currentGoal.area, NAV_MESH_STAIRS) then
-        return true
-    end
-
-    return false
-end
-
-local function HasReachedSegment(bot, currentGoal, isStairs)
-    local tolerance = isStairs and 48 or 16
-    local overlapTolerance = isStairs and 24 or 4
+local function HasReachedSegment(bot, currentGoal, usingLadder)
+    local tolerance = usingLadder and 48 or 16
+    local overlapTolerance = usingLadder and 24 or 4
 
     local botPos2D = Vector(bot:GetPos().x, bot:GetPos().y, 0)
     local goalPos2D = Vector(currentGoal.pos.x, currentGoal.pos.y, 0)
@@ -40,9 +28,7 @@ local function AdvanceSegment(bot, controller, segments)
     local reachedFinalGoal = false
 
     while currentGoal do
-        local isStairs = IsStairSegment(bot, segments, segmentIndex)
-
-        if not HasReachedSegment(bot, currentGoal, isStairs) then
+        if not HasReachedSegment(bot, currentGoal, usingLadder) then
             break
         end
 
@@ -64,14 +50,13 @@ local function HandleStop(mv, controller)
     mv:SetForwardSpeed(0)
 end
 
-local function HandleStrafe(mv, bot, controller, currentGoal)
-    local usingStairs = controller.IsTraversingStairs
+local function HandleStrafe(mv, bot, controller, currentGoal, usingLadder)
     local isFrozen = bot:IsFrozen()
     local now = CurTime()
     local isJumpArea = AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
 
     if controller.NextStrafe < now then
-        if not usingStairs
+        if not usingLadder
             and not isFrozen
             and not isJumpArea
         then
@@ -85,7 +70,7 @@ local function HandleStrafe(mv, bot, controller, currentGoal)
     end
 
     if controller.NextStrafe > now then
-        local canStrafe = not usingStairs and not isJumpArea
+        local canStrafe = not usingLadder and not isJumpArea
 
         if canStrafe and not isFrozen then
             if controller.StrafeAngle == 1 then
@@ -97,12 +82,11 @@ local function HandleStrafe(mv, bot, controller, currentGoal)
     end
 end
 
-local function HandleMoveAngles(mv, bot, controller, currentGoal, usingStairs)
+local function HandleMoveAngles(mv, bot, controller, currentGoal, usingLadder)
     local moveTarget
     local shootPos = bot:GetShootPos()
-    local usingStairs = controller.IsTraversingStairs
 
-    if usingStairs then
+    if usingLadder then
         moveTarget = Vector(currentGoal.pos.x, currentGoal.pos.y, shootPos.z)
     else
         moveTarget = currentGoal.pos + bot:GetCurrentViewOffset()
@@ -126,19 +110,20 @@ function SM.UpdateMovement(bot, controller, mv)
     end
 
     local hasTarget = IsValid(controller.Target)
+    local usingLadder = bot:GetMoveType() == MOVETYPE_LADDER
 
     local currentGoal, reachedFinalGoal =
-        AdvanceSegment(bot, controller, segments)
+        AdvanceSegment(bot, controller, segments, usingLadder)
 
     if reachedFinalGoal and not hasTarget or not currentGoal then
         HandleStop(mv, controller)
         return nil, nil
     end
 
-    HandleStrafe(mv, bot, controller, currentGoal)
+    HandleStrafe(mv, bot, controller, currentGoal, usingLadder)
 
     local moveAngles = 
-        HandleMoveAngles(mv, bot, controller, currentGoal)
+        HandleMoveAngles(mv, bot, controller, currentGoal, usingLadder)
 
     return currentGoal, moveAngles
 end

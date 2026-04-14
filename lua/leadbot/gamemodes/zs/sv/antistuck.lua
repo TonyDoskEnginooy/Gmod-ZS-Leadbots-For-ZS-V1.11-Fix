@@ -60,56 +60,7 @@ local unstuckOffsets = {
 
 local leadbot_mapchanges = GetConVar("leadbot_mapchanges")
 
-local LADDER_ESCAPE_DELAY = 15
-local LADDER_ESCAPE_RETRY = 1
-
-local function GetBotController(ply)
-    return ply.GetController and ply:GetController() or ply.ControllerBot
-end
-
-local function UpdateBotLadderEscapeState(ply, state)
-    if not IsValid(ply) or not ply:IsBot() then
-        if state then
-            state.ladderStartTime = 0
-            state.nextLadderEscape = 0
-        end
-
-        return false
-    end
-
-    if ply:GetMoveType() ~= MOVETYPE_LADDER then
-        state.ladderStartTime = 0
-        state.nextLadderEscape = 0
-        return false
-    end
-
-    local now = CurTime()
-
-    if state.ladderStartTime == 0 then
-        state.ladderStartTime = now
-        state.nextLadderEscape = 0
-        return true
-    end
-
-    if now - state.ladderStartTime < LADDER_ESCAPE_DELAY then
-        return true
-    end
-
-    if state.nextLadderEscape > now then
-        return true
-    end
-
-    local controller = GetBotController(ply)
-
-    if IsValid(controller) then
-        -- Ask StartCommand to press jump while the bot is on the ladder.
-        controller.ForceLadderExitUntil = now + 0.25
-        controller.NextJump = -1
-    end
-
-    state.nextLadderEscape = now + LADDER_ESCAPE_RETRY
-    return true
-end
+local LADDER_ESCAPE_DELAY = 1.2
 
 local function GetPlayerHull(ply)
     if ply:Crouching() then
@@ -117,6 +68,44 @@ local function GetPlayerHull(ply)
     end
 
     return ply:GetHull()
+end
+
+local function UpdateBotLadderEscapeState(ply, state)
+    if not IsValid(ply) or not ply:IsBot() then
+        if state then
+            state.nextLadderEscape = 0
+        end
+
+        return false
+    end
+
+    if ply:GetMoveType() ~= MOVETYPE_LADDER then
+        if state.nextLadderEscape > 0 then
+            state.nextLadderEscape = 0
+        end
+
+        return false
+    end
+
+    local now = CurTime()
+    local lowSpeed = ply:GetVelocity():Length2DSqr() <= 225
+
+    if lowSpeed and state.nextLadderEscape == 0 then
+        state.nextLadderEscape = now + LADDER_ESCAPE_DELAY
+    elseif not lowSpeed and state.nextLadderEscape > 0 then
+        state.nextLadderEscape = 0
+    end
+
+    if state.nextLadderEscape > 0 and state.nextLadderEscape <= now then
+        local ladder = ZSB.GetPlayerActiveLadderData(ply)
+
+        ply:ExitLadder()
+        ply:SetVelocity(ladder.normal * 300)
+
+        state.nextLadderEscape = 0
+    end
+
+    return true
 end
 
 local function IsPlayerEmbeddedAt(ply, pos)
@@ -201,7 +190,6 @@ local function AddStuckState(ply, pos)
             outsideWorldCounter = 0,
             embeddedCounter = 0,
             stalledCounter = 0,
-            ladderStartTime = 0,
             nextLadderEscape = 0
         }
 
@@ -219,7 +207,6 @@ local function ResetStuckState(ply)
         state.outsideWorldCounter = 0
         state.embeddedCounter = 0
         state.stalledCounter = 0
-        state.ladderStartTime = 0
         state.nextLadderEscape = 0
     end
 end

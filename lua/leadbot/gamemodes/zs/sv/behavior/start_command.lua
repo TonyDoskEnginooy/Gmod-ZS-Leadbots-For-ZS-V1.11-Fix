@@ -27,8 +27,6 @@ function LeadBot.StartCommand(bot, cmd)
     local now = CurTime()
     local teamId = bot:Team()
 
-    SC.StartStair(bot, controller, now)
-
     if controller.Path then
         local segments = controller.Path:GetAllSegments()
         

@@ -22,7 +22,8 @@ ZSB = {
     DEBUG = false,
     INTERMISSION = 1,
     INTERMISSION_FAKE_TIMER = 60,
-    playerCSSpeed = 200
+    playerCSSpeed = 200,
+    ladderMap = {}
 }
 
 local HORDE_TIMER_NAME = "Hordes"
@@ -180,13 +181,15 @@ end
 concommand.Add("leadbot_add", CmdAddBot, nil, "Adds a LeadBot")
 concommand.Add("leadbot_kick", CmdKickBot, nil, "Kicks LeadBots. Use 'all' to kick every bot.")
 
+include("zs/sv/add_bot.lua")
+include("zs/sv/antistuck.lua")
+include("zs/sv/behavior_hook.lua")
+include("zs/sv/ladder_support.lua")
 include("zs/sv/map_handler.lua")
 include("zs/sv/player_meta.lua")
 include("zs/sv/util.lua")
-include("zs/sv/antistuck.lua")
-include("zs/sv/add_bot.lua")
+
 includeFilesInDir("leadbot/gamemodes/zs/sv/behavior")
-include("zs/sv/behavior_hook.lua")
 
 cvars.AddChangeCallback("leadbot_quota", function(_, oldValue, newValue)
     oldValue = tonumber(oldValue)
@@ -202,6 +205,7 @@ function ZSB.InitPostEntity()
         createHordeTimers()
     end
 
+    ZSB.ladderMap = ZSB.BuildLadderMap()
     ZSB.Map.Init()
 end
 
