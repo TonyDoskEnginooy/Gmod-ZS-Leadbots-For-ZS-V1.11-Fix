@@ -187,6 +187,7 @@ include("zs/sv/behavior_hook.lua")
 include("zs/sv/ladder_support.lua")
 include("zs/sv/map_handler.lua")
 include("zs/sv/player_meta.lua")
+include("zs/sv/profiler.lua")
 include("zs/sv/util.lua")
 
 includeFilesInDir("leadbot/gamemodes/zs/sv/behavior")
