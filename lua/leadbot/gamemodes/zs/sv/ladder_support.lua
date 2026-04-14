@@ -1,13 +1,6 @@
-local ATTACH_PAD = 96     -- How far a dismount can be from a ladder in XY
-local Z_ATTACH_PAD = 15   -- Extra Z slack when attaching dismounts to ladders
+local ATTACH_PAD = 96
+local Z_ATTACH_PAD = 128
 local AXIS_TOL = 3
-local DirectionVectors = {
-    NORTH = Vector(0, 1, 0),
-    SOUTH = Vector(0, -1, 0),
-    EAST = Vector(1, 0, 0),
-    WEST = Vector(-1, 0, 0),
-    UNKNOWN = vector_origin
-}
 
 local function CenterFromAABB(mins, maxs)
     return (mins + maxs) * 0.5
@@ -32,6 +25,18 @@ local function PointToAABB2DDistance(pos, mins, maxs)
     return math.sqrt(dx * dx + dy * dy)
 end
 
+local function DistanceToZRange(z, minZ, maxZ)
+    if z < minZ then
+        return minZ - z
+    end
+
+    if z > maxZ then
+        return z - maxZ
+    end
+
+    return 0
+end
+
 local function ClassifyUpDown(ladder, pos)
     local mins, maxs = ladder:WorldSpaceAABB()
 
@@ -49,18 +54,18 @@ local function FindBestLadderForPoint(ladders, pointPos)
     local bestLadder = nil
     local bestScore = nil
 
+    -- Pass 2: XY fallback when Z is slightly outside the ladder bounds
     for _, ladder in ipairs(ladders) do
         local mins, maxs = ladder:WorldSpaceAABB()
+        local dxy = PointToAABB2DDistance(pointPos, mins, maxs)
+        local dz = DistanceToZRange(pointPos.z, mins.z, maxs.z)
 
-        local withinZ = pointPos.z >= (mins.z - Z_ATTACH_PAD) and pointPos.z <= (maxs.z + Z_ATTACH_PAD)
-        if withinZ then
-            local dxy = PointToAABB2DDistance(pointPos, mins, maxs)
+        if dxy <= ATTACH_PAD and dz <= Z_ATTACH_PAD then
+            local score = dxy + (dz * 0.25)
 
-            if dxy <= ATTACH_PAD then
-                if not bestScore or dxy < bestScore then
-                    bestScore = dxy
-                    bestLadder = ladder
-                end
+            if not bestScore or score < bestScore then
+                bestScore = score
+                bestLadder = ladder
             end
         end
     end
@@ -174,51 +179,27 @@ function ZSB.BuildLadderMap()
     return ladderPoints
 end
 
-local function GetPlayerLadderScore(ply, ladder)
-    local mins, maxs = ladder:WorldSpaceAABB()
-    local pos = ply:GetPos()
-
-    local dxy = PointToAABB2DDistance(pos, mins, maxs)
-    local center = CenterFromAABB(mins, maxs)
-
-    local dz = 0
-    if pos.z < mins.z then
-        dz = mins.z - pos.z
-    elseif pos.z > maxs.z then
-        dz = pos.z - maxs.z
-    end
-
-    local dc = pos:Distance(center)
-
-    -- Prefer ladders that the player is very close to in XY and Z.
-    -- Use center distance only as a tie breaker.
-    return dxy + (dz * 4) + (dc * 0.01)
-end
-
 function ZSB.GetPlayerActiveLadderData(ply, ladderMap)
     if not IsValid(ply) or not ply:IsPlayer() then
         return nil
     end
 
-    if ply:GetMoveType() ~= MOVETYPE_LADDER then
-        return nil
-    end
-
     ladderMap = ladderMap or ZSB.ladderMap or ZSB.BuildLadderMap()
 
+    local pos = ply:GetPos()
     local bestData = nil
     local bestScore = nil
 
     for ladder, data in pairs(ladderMap) do
         if IsValid(ladder) then
             local mins, maxs = ladder:WorldSpaceAABB()
-            local pos = ply:GetPos()
-
-            local withinZ = pos.z >= (mins.z - 32) and pos.z <= (maxs.z + 32)
             local dxy = PointToAABB2DDistance(pos, mins, maxs)
+            local dz = DistanceToZRange(pos.z, mins.z, maxs.z)
+            local center = CenterFromAABB(mins, maxs)
+            local dc = pos:Distance(center)
 
-            if withinZ and dxy <= ATTACH_PAD then
-                local score = GetPlayerLadderScore(ply, ladder)
+            if dxy <= ATTACH_PAD then
+                local score = dxy + (dz * 2) + (dc * 0.01)
 
                 if not bestScore or score < bestScore then
                     bestScore = score
