@@ -3,40 +3,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-local NEXT_TARGET_LOAD_REFRESH = 0
-
-local TARGET_LOAD = setmetatable({}, { __mode = "k" })
-
-if SC._ZombieTargetingLoaded then
-    return
-end
-
-SC._ZombieTargetingLoaded = true
-
-local function ClearTargetLoad()
-    for ent in pairs(TARGET_LOAD) do
-        TARGET_LOAD[ent] = nil
-    end
-end
-
-local function RefreshTargetLoad()
-    if NEXT_TARGET_LOAD_REFRESH > CurTime() then return end
-
-    ClearTargetLoad()
-
-    for _, ply in ipairs(player.GetBots()) do
-        if IsValid(ply) and ply.IsLBot and ply:IsLBot() then
-            local controller = ply:GetController()
-
-            if IsValid(controller) and IsValid(controller.Target) then
-                TARGET_LOAD[controller.Target] = (TARGET_LOAD[controller.Target] or 0) + 1
-            end
-        end
-    end
-
-    NEXT_TARGET_LOAD_REFRESH = CurTime() + 0.2
-end
-
 local function ScoreZombieObstacleTarget(bot, controller, target)
     if not ZSB.Map:GetValue("zombiePropCheck", false) then
         return false
@@ -84,8 +50,6 @@ end
 
 function SC.AcquireZombieBreakTarget(bot, controller, foundEnts)
     if bot:Team() ~= TEAM_ZOMBIE then return end
-
-    RefreshTargetLoad()
 
     local state = {
         bestScore = -math.huge,
