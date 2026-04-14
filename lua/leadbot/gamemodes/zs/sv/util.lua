@@ -53,6 +53,68 @@ local TORSO_AIM_OFFSET = Vector(0, 0, -20)
 local FACING_DOT_THRESHOLD = 0.55
 local FACING_DOT_THRESHOLD_SQR = FACING_DOT_THRESHOLD * FACING_DOT_THRESHOLD
 
+local SURVIVOR_CROUCH_MODERATE_NEAR_MIN_SQR = 120 * 120
+local SURVIVOR_CROUCH_MODERATE_NEAR_MAX_SQR = 260 * 260
+local SURVIVOR_CROUCH_MODERATE_FAR_MAX_SQR = 560 * 560
+
+local SURVIVOR_CROUCH_AIM_WEAPONS = {
+    weapon_zs_deagle = {
+        aimLerpMultiplier = 1.45,
+        aimRefreshDelay = 0.07,
+        jitterScale = 0.50,
+        leadScale = 0.88
+    },
+
+    weapon_zs_glock3 = {
+        aimLerpMultiplier = 1.12,
+        aimRefreshDelay = 0.09,
+        jitterScale = 0.85,
+        leadScale = 0.96
+    },
+
+    weapon_zs_magnum = {
+        aimLerpMultiplier = 1.35,
+        aimRefreshDelay = 0.07,
+        jitterScale = 0.56,
+        leadScale = 0.90
+    },
+
+    weapon_zs_peashooter = {
+        aimLerpMultiplier = 1.65,
+        aimRefreshDelay = 0.055,
+        jitterScale = 0.34,
+        leadScale = 0.82
+    },
+
+    weapon_zs_uzi = {
+        aimLerpMultiplier = 1.28,
+        aimRefreshDelay = 0.065,
+        jitterScale = 0.60,
+        leadScale = 0.90
+    },
+
+    weapon_zs_sweepershotgun = {
+        aimLerpMultiplier = 1.10,
+        aimRefreshDelay = 0.085,
+        jitterScale = 0.88,
+        leadScale = 0.98
+    },
+
+    weapon_zs_crossbow = {
+        aimLerpMultiplier = 2.20,
+        aimRefreshDelay = 0.03,
+        jitterScale = 0.05,
+        leadScale = 0.72
+    },
+
+    weapon_zs_smg = {
+        aimLerpMultiplier = 1.30,
+        aimRefreshDelay = 0.06,
+        jitterScale = 0.62,
+        leadScale = 0.90
+    }
+}
+
 local function GetZombieClassName(bot)
     if not IsValid(bot) or not bot.GetZombieClass then
         return nil
@@ -111,6 +173,64 @@ end
 
 function UT:CanPerceiveTarget(botZombie)
     return not self:IsWraithInvisibleToSurvivor(botZombie)
+end
+
+local function GetSurvivorCrouchWeaponData(weapon)
+    if not IsValid(weapon) then
+        return nil
+    end
+
+    return SURVIVOR_CROUCH_AIM_WEAPONS[weapon:GetClass()]
+end
+
+local function GetSurvivorCrouchRangeBand(distanceSqr)
+    if distanceSqr >= SURVIVOR_CROUCH_MODERATE_NEAR_MIN_SQR
+        and distanceSqr < SURVIVOR_CROUCH_MODERATE_NEAR_MAX_SQR
+    then
+        return "moderate_near"
+    end
+
+    if distanceSqr >= SURVIVOR_CROUCH_MODERATE_NEAR_MAX_SQR
+        and distanceSqr <= SURVIVOR_CROUCH_MODERATE_FAR_MAX_SQR
+    then
+        return "moderate_far"
+    end
+
+    return nil
+end
+
+local function GetActiveSurvivorCrouchAimData(attacker, target, distanceSqr)
+    if not IsValid(attacker)
+        or not attacker:IsPlayer()
+        or attacker:Team() ~= TEAM_SURVIVORS
+        or not IsValid(target)
+        or not target:IsPlayer()
+        or target:Team() ~= TEAM_ZOMBIE
+        or not GetSurvivorCrouchRangeBand(distanceSqr)
+    then
+        return nil
+    end
+
+    local controller = attacker:GetController()
+    local ducking = attacker:Crouching() or IsValid(controller) and (controller.NextDuck or 0) > CurTime()
+
+    if not ducking then
+        return nil
+    end
+
+    return GetSurvivorCrouchWeaponData(attacker:GetActiveWeapon())
+end
+
+function UT:GetSurvivorCrouchWeaponData(weapon)
+    return GetSurvivorCrouchWeaponData(weapon)
+end
+
+function UT:GetSurvivorCrouchRangeBand(distanceSqr)
+    return GetSurvivorCrouchRangeBand(distanceSqr)
+end
+
+function UT:GetActiveSurvivorCrouchAimData(attacker, target, distanceSqr)
+    return GetActiveSurvivorCrouchAimData(attacker, target, distanceSqr)
 end
 
 function UT:IsFacingEnt(ent1, ent2)
@@ -174,6 +294,7 @@ function UT:GetCombatAimPoint(attacker, target)
 
     local aimPoint = bodyCenter
     local distanceSqr = shootPos:DistToSqr(bodyCenter)
+    local crouchAimData = GetActiveSurvivorCrouchAimData(attacker, target, distanceSqr)
 
     if target:Crouching() then
         aimPoint = aimPoint - Vector(0, 0, 6)
@@ -183,9 +304,10 @@ function UT:GetCombatAimPoint(attacker, target)
         if not IsTorsoZombie(target) then
             if distanceSqr > 260 * 260 then
                 local headOffset = target:EyePos() - aimPoint
-                aimPoint = aimPoint + headOffset * 0.18
+                local headScale = crouchAimData and 0.23 or 0.18
+                aimPoint = aimPoint + headOffset * headScale
             elseif distanceSqr > 120 * 120 then
-                aimPoint = aimPoint + Vector(0, 0, 3)
+                aimPoint = aimPoint + Vector(0, 0, crouchAimData and 4 or 3)
             end
         end
 
@@ -197,6 +319,10 @@ function UT:GetCombatAimPoint(attacker, target)
             jitterRadius = jitterRadius * (1.35 - normalizedSkill)
         end
 
+        if crouchAimData then
+            jitterRadius = jitterRadius * (crouchAimData.jitterScale or 1)
+        end
+
         local jitter = VectorRand() * jitterRadius
         jitter.z = jitter.z * 0.4 + normalizedSkill
         aimPoint = aimPoint + jitter
@@ -205,6 +331,11 @@ function UT:GetCombatAimPoint(attacker, target)
     end
 
     local leadTime = math.Clamp(shootPos:Distance(aimPoint) / 3600, 0.006, 0.05)
+
+    if crouchAimData then
+        leadTime = leadTime * (crouchAimData.leadScale or 1)
+    end
+
     return aimPoint + target:GetVelocity() * leadTime
 end
 
@@ -231,7 +362,7 @@ local BOT_SCAN_JITTER_MIN = -0.1
 local BOT_SCAN_JITTER_MAX = 0.1
 local NEAR_DISTANCE = 250
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
-local FACING_DISTANCE = 1200
+local FACING_DISTANCE = 1000
 local FACING_DISTANCE_SQR = FACING_DISTANCE * FACING_DISTANCE
 
 local entsFindInBox = ents.FindInBox

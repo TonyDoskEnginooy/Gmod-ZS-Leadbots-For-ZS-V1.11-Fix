@@ -13,6 +13,7 @@ local SURVIVOR_ROLE_DEFAULTS = {
         panicBonus = 0,
         crowdBonus = 0,
         sustainBonus = 0,
+        crouchImproveBonus = 0,
         melee = true,
         slowFire = false
     },
@@ -24,6 +25,7 @@ local SURVIVOR_ROLE_DEFAULTS = {
         panicBonus = 8,
         crowdBonus = -6,
         sustainBonus = 0,
+        crouchImproveBonus = 4,
         melee = false,
         slowFire = false
     },
@@ -35,6 +37,7 @@ local SURVIVOR_ROLE_DEFAULTS = {
         panicBonus = 24,
         crowdBonus = 34,
         sustainBonus = 20,
+        crouchImproveBonus = 6,
         melee = false,
         slowFire = false
     },
@@ -46,6 +49,7 @@ local SURVIVOR_ROLE_DEFAULTS = {
         panicBonus = 24,
         crowdBonus = 12,
         sustainBonus = -6,
+        crouchImproveBonus = 3,
         melee = false,
         slowFire = false
     },
@@ -57,6 +61,7 @@ local SURVIVOR_ROLE_DEFAULTS = {
         panicBonus = -10,
         crowdBonus = -20,
         sustainBonus = -12,
+        crouchImproveBonus = 8,
         melee = false,
         slowFire = true
     }
@@ -90,7 +95,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 25,
         panicBonus = 4,
         crowdBonus = -10,
-        sustainBonus = -2
+        sustainBonus = -2,
+        crouchImproveBonus = 34
     },
 
     weapon_zs_glock3 = {
@@ -100,7 +106,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 40,
         panicBonus = 10,
         crowdBonus = -4,
-        sustainBonus = 2
+        sustainBonus = 2,
+        crouchImproveBonus = 12
     },
 
     weapon_zs_deagle = {
@@ -110,7 +117,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 55,
         panicBonus = 20,
         crowdBonus = -2,
-        sustainBonus = -4
+        sustainBonus = -4,
+        crouchImproveBonus = 20
     },
 
     weapon_zs_magnum = {
@@ -120,7 +128,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 65,
         panicBonus = 34,
         crowdBonus = 6,
-        sustainBonus = -8
+        sustainBonus = -8,
+        crouchImproveBonus = 24
     },
 
     weapon_zs_uzi = {
@@ -130,7 +139,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 52,
         panicBonus = 30,
         crowdBonus = 46,
-        sustainBonus = 34
+        sustainBonus = 34,
+        crouchImproveBonus = 20
     },
 
     weapon_zs_smg = {
@@ -140,7 +150,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 72,
         panicBonus = 30,
         crowdBonus = 40,
-        sustainBonus = 28
+        sustainBonus = 28,
+        crouchImproveBonus = 18
     },
 
     weapon_zs_sweepershotgun = {
@@ -150,7 +161,8 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = -25,
         panicBonus = 30,
         crowdBonus = 18,
-        sustainBonus = -10
+        sustainBonus = -10,
+        crouchImproveBonus = 8
     },
 
     weapon_zs_crossbow = {
@@ -160,8 +172,9 @@ local SURVIVOR_WEAPON_OVERRIDES = {
         farBonus = 110,
         panicBonus = -10,
         crowdBonus = -20,
-        sustainBonus = -12
-    }    
+        sustainBonus = -12,
+        crouchImproveBonus = 60
+    }
 }
 
 local SURVIVOR_LOW_AMMO_THRESHOLDS = {
@@ -359,7 +372,21 @@ local function GetWeaponReserveAmmo(bot, weapon, profile)
     return bot:GetAmmoCount(ammoName)
 end
 
-local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon)
+local function IsSurvivorCrouchOpportunity(bot, controller, distanceSqr, threat)
+    if bot:Team() ~= TEAM_SURVIVORS
+        or not ZSB.Util.IsValidEnemyZombie(bot, controller.Target)
+        or not ZSB.Util:GetSurvivorCrouchRangeBand(distanceSqr)
+        or threat.nearestDistSqr <= 85 * 85
+        or threat.immediateCount >= 2
+        or threat.closeCount >= 4
+    then
+        return false
+    end
+
+    return true
+end
+
+local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon, crouchOpportunity)
     local clip = math.max(weapon:Clip1(), 0)
     local reserveAmmo = GetWeaponReserveAmmo(bot, weapon, profile)
     local totalAmmo = clip + reserveAmmo
@@ -418,6 +445,28 @@ local function GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat,
             score = score - 35
         else
             score = score + 20
+        end
+    end
+
+    if crouchOpportunity then
+        local crouchBonus = profile.crouchImproveBonus or 0
+
+        if crouchBonus ~= 0 then
+            if not ZSB.Util:GetSurvivorCrouchWeaponData(weapon) then
+                crouchBonus = crouchBonus * 0.35
+            end
+
+            if threat.crowd then
+                crouchBonus = crouchBonus * 0.6
+            elseif isFarRange then
+                crouchBonus = crouchBonus * 1.15
+            end
+
+            if threat.panic then
+                crouchBonus = crouchBonus * 0.7
+            end
+
+            score = score + crouchBonus
         end
     end
 
@@ -511,8 +560,9 @@ local function HasUsableWeaponAmmo(bot, weapon, profile)
     return GetWeaponReserveAmmo(bot, weapon, profile) > 0
 end
 
-local function SelectBestSurvivorFirearm(bot, weapons, distanceSqr, foundEnts, activeWeapon)
+local function SelectBestSurvivorFirearm(bot, weapons, distanceSqr, controller, foundEnts, activeWeapon)
     local threat = GetSurvivorThreatState(bot, foundEnts)
+    local crouchOpportunity = IsSurvivorCrouchOpportunity(bot, controller, distanceSqr, threat)
 
     local bestWeapon
     local bestScore = -math.huge
@@ -521,7 +571,7 @@ local function SelectBestSurvivorFirearm(bot, weapons, distanceSqr, foundEnts, a
         local profile = BuildSurvivorWeaponProfile(weapon)
 
         if profile and not profile.melee and HasUsableWeaponAmmo(bot, weapon, profile) then
-            local score = GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon)
+            local score = GetSurvivorWeaponScore(bot, weapon, profile, distanceSqr, threat, activeWeapon, crouchOpportunity)
 
             if not IsValid(bestWeapon) or score > bestScore then
                 bestWeapon = weapon
@@ -668,7 +718,7 @@ function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts, now)
         return
     end
 
-    if SelectBestSurvivorFirearm(bot, weapons, distanceSqr, foundEnts, activeWeapon) then
+    if SelectBestSurvivorFirearm(bot, weapons, distanceSqr, controller, foundEnts, activeWeapon) then
         return
     end
 

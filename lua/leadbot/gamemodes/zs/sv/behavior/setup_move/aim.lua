@@ -14,6 +14,22 @@ local cachedAimSkill = {}
 local cachedChosenEyeAnges = {}
 local hasValidCampingData = true
 
+local function GetSurvivorCrouchAimData(bot, controller)
+    if bot:Team() ~= TEAM_SURVIVORS or not IsValid(controller.Target) then
+        return nil
+    end
+
+    local targetPos = ZSB.Util.GetPos(controller.Target, bot:GetPos())
+
+    if not isvector(targetPos) then
+        return nil
+    end
+
+    local distanceSqr = bot:GetShootPos():DistToSqr(targetPos)
+
+    return ZSB.Util:GetActiveSurvivorCrouchAimData(bot, controller.Target, distanceSqr)
+end
+
 local function RefreshCampingCache()
     if cachedCampingSpotList then return end
 
@@ -103,13 +119,12 @@ local function GetAimSkill(bot, team, now)
     return aimSkill
 end
 
-local function GetAimLerp(bot, controller, strategy, hasTarget, frameTime, now)
+local function GetAimLerp(bot, controller, strategy, hasTarget, frameTime, now, crouchAimData)
     local team = bot:Team()
     local aimSkill = GetAimSkill(bot, team, now)
     local multiplier
 
     if team == TEAM_SURVIVORS then
-        
         if hasTarget and strategy > 0 then
             multiplier = 0.75
         else
@@ -121,6 +136,10 @@ local function GetAimLerp(bot, controller, strategy, hasTarget, frameTime, now)
         end
     else
         multiplier = 0.6
+    end
+
+    if crouchAimData then
+        multiplier = multiplier * (crouchAimData.aimLerpMultiplier or 1)
     end
 
     return frameTime * (aimSkill * multiplier)
@@ -136,13 +155,14 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, strategy)
     local shootPos = bot:GetShootPos()
     local hasTarget = IsValid(controller.Target)
     local frameTime = FrameTime()
-    local lerpValue = GetAimLerp(bot, controller, strategy, frameTime, frameTime, now)
+    local crouchAimData = hasTarget and GetSurvivorCrouchAimData(bot, controller) or nil
+    local lerpValue = GetAimLerp(bot, controller, strategy, hasTarget, frameTime, now, crouchAimData)
 
     if hasTarget then
         if controller.NextAimPoint < now then
             local aimPoint = ZSB.Util:GetCombatAimPoint(bot, controller.Target)
             controller.AimPoint = aimPoint
-            controller.NextAimPoint = now + 0.1
+            controller.NextAimPoint = now + (crouchAimData and crouchAimData.aimRefreshDelay or 0.1)
         end
 
         if controller.AimPoint then
@@ -151,8 +171,9 @@ function SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, strategy)
                     and (controller.RecentCloseThreatUntil or 0) > now
 
                 if recentThreatActive then
-                    local aimSkill = GetAimSkill(bot, team, now)
-                    lerpValue = frameTime * (aimSkill * 0.8)
+                    local aimSkill = GetAimSkill(bot, bot:Team(), now)
+                    local crouchMultiplier = crouchAimData and (crouchAimData.aimLerpMultiplier or 1) or 1
+                    lerpValue = frameTime * (aimSkill * 0.8 * crouchMultiplier)
                 end
             end
 

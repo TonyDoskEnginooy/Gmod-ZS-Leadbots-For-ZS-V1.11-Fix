@@ -6,6 +6,10 @@ local SC = ZSB.StartCommand
 local RANDOM_JUMP_MIN = 1
 local RANDOM_JUMP_MAX = 2
 local BOT_DUCK_DELAY = 0.25
+local BOT_DUCK_AIM_DELAY_MIN = 1.5
+local BOT_DUCK_AIM_DELAY_MAX = 8
+local SURVIVOR_CROUCH_RECENT_THREAT_DISTANCE_SQR = 185 * 185
+local SURVIVOR_CROUCH_PRESSURE_DISTANCE_SQR = 280 * 280
 
 function SC.BreakRotatingDoor(bot, doors)
     if not ZSB.Util.HasEntries(doors) then return end
@@ -40,6 +44,39 @@ end
 
 local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
+end
+
+local function ShouldUseCombatCrouch(bot, controller)
+    if bot:Team() ~= TEAM_SURVIVORS
+        or bot:IsFrozen()
+        or not bot:IsOnGround()
+        or not ZSB.Util.IsValidEnemyZombie(bot, controller.Target)
+        or ZSB.Util.IsActiveSurvivorMelee(bot)
+        or not ZSB.Util:GetSurvivorCrouchWeaponData(bot:GetActiveWeapon())
+    then
+        return false
+    end
+
+    local distanceSqr = bot:GetPos():DistToSqr(controller.Target:GetPos())
+    local crouchRange = ZSB.Util:GetSurvivorCrouchRangeBand(distanceSqr)
+
+    if not crouchRange then
+        return false
+    end
+
+    if SC.GetRecentCloseThreat(controller) == controller.Target
+        and distanceSqr <= SURVIVOR_CROUCH_RECENT_THREAT_DISTANCE_SQR
+    then
+        return false
+    end
+
+    if (controller.RetreatTotalThreats or 0) >= 4
+        and distanceSqr <= SURVIVOR_CROUCH_PRESSURE_DISTANCE_SQR
+    then
+        return false
+    end
+
+    return true
 end
 
 local slowSqr = 20 * 20
@@ -90,9 +127,24 @@ function SC.HandleJump(bot, controller, currentGoal, now)
 end
 
 function SC.HandleCrouch(bot, controller, currentGoal, now)
-    if controller.NextDuck >= now then return end
+    if controller.NextDuck >= now then
+        if controller.RetreatTotalThreats > 3 or SC.GetRecentCloseThreat() then
+            controller.NextJump = 0
+            controller.NextDuckCheck = 0
+        end
+
+        return
+    end
+
     if controller.NextDuckCheck >= now then return end
-    
+
+    if ShouldUseCombatCrouch(bot, controller) and math.random(1, 100) <= 35 then
+        local delay = math.Rand(BOT_DUCK_AIM_DELAY_MIN, BOT_DUCK_AIM_DELAY_MAX)
+        controller.NextDuck = now + delay
+        controller.NextDuckCheck = now + delay
+        return
+    end
+
     controller.NextDuckCheck = now + BOT_DUCK_DELAY
 
     if AreaHasAttribute(currentGoal.area, NAV_MESH_CROUCH) then
