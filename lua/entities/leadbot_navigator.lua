@@ -67,6 +67,8 @@ end
 function ENT:Reset()
     self.Path = nil -- Path object
     self.PosGen = nil -- Final Path pos
+    self.LastPosGen = nil
+    self.ForgetPosGen = 0
     self.GoalPos = vector_origin -- Current pos in the path to self.PosGen
     self.Target = nil
     self.ForgetTarget = 0
@@ -121,6 +123,16 @@ function ENT:ComputePath()
 
     if self.NextPathRecompute > now then
         return true
+    end
+
+    if self.PosGen ~= self.LastPosGen then
+        self.ForgetPosGen = now + 10
+        self.LastPosGen = self.PosGen
+    elseif self.ForgetPosGen ~= 0 and self.ForgetPosGen < now then
+        self.PosGen = nil
+        self.LastPosGen = nil
+        self.ForgetPosGen = 0
+        return
     end
 
     self.Path = self.Path or self:CreatePath()
