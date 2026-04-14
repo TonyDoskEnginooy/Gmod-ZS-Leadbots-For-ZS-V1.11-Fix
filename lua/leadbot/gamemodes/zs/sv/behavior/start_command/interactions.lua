@@ -64,8 +64,24 @@ function SC.HandleJump(bot, controller, currentGoal, now)
     end
 
     if speed2DSqr <= slowSqr then
-        local jumpChance = controller.Target and 38 or 25
+        local jumpChance = 0
         
+        if controller.Target then
+            if controller.RetreatTotalThreats == 0 then
+                jumpChance = 10
+            elseif controller.RetreatTotalThreats <= 3 then
+                jumpChance = 15
+            elseif controller.RetreatTotalThreats <= 6 then
+                jumpChance = 30
+            elseif controller.RetreatTotalThreats <= 9 then
+                jumpChance = 60
+            else
+                jumpChance = 85
+            end
+        else
+            jumpChance = 6
+        end
+
         if math.random(1, 100) <= jumpChance then
             controller.NextJump = 0
             controller.NextRandomJump = now + math.Rand(RANDOM_JUMP_MIN, RANDOM_JUMP_MAX)
