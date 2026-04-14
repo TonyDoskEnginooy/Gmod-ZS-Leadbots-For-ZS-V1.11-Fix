@@ -83,18 +83,11 @@ function LeadBot.Botize(ply, togg)
             ply.ControllerBot = nil
         end
 
-        ply.LastSegmented = CurTime()
-        ply.CurSegment = 2
-
         return true
     end
 
     ply:SetNWBool("LeadBot_AFK", true)
     ply.Botized = true
-    ply.BotColor = ply:GetPlayerColor()
-    ply.BotSkin = ply:GetSkin()
-    ply.BotModel = ply:GetModel()
-    ply.BotWColor = ply:GetWeaponColor()
 
     local controller = ents.Create("leadbot_navigator")
     if not IsValid(controller) then
@@ -108,23 +101,17 @@ function LeadBot.Botize(ply, togg)
     controller:SetFOV(ply:GetFOV())
 
     ply.ControllerBot = controller
-    ply.LastSegmented = CurTime()
-    ply.CurSegment = 2
-
-    ply.LBConfig = {}
+    ply.LBConfig = {
+        model = ply:GetModel(),
+        color = ply:GetPlayerColor(),
+        weaponColor = ply:GetWeaponColor()
+    }
 
     if GetConVar("leadbot_strategy"):GetBool() then
         ply.LBConfig.strategy = math.random(0, LeadBot.Strategies)
     else
-        ply.LBConfig.strategy = nil
+        ply.LBConfig.strategy = 0
     end
-
-    ply.LBConfig = {
-        model = ply.BotModel,
-        color = ply.BotColor,
-        weaponColor = ply.BotWColor,
-        strategy = ply.LBConfig.strategy
-    }
 
     return true
 end
