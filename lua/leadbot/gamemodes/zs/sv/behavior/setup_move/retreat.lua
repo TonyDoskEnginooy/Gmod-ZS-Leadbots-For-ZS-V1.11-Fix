@@ -108,7 +108,6 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
         or totalThreats > 2 
     ) then
         mv:SetForwardSpeed(-1200)
-        ApplyRetreatSideSpeed(controller, mv)
         return
     end
 
