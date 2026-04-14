@@ -96,17 +96,12 @@ local function UpdateBotLadderEscapeState(ply, state)
     end
 
     if state.nextLadderEscape > 0 and state.nextLadderEscape <= now then
-        local ladder = ZSB.GetPlayerActiveLadderData(ply)
-
-        if IsValid(ladder) then
-            ply:ExitLadder()
-            ply:SetVelocity(ladder.normal * 300)
+        if ZSB.ExitLadder(ply) then
             state.nextLadderEscape = 0
-
             return true
+        else
+            return false
         end
-
-        return false
     end
 
     return true
@@ -288,11 +283,10 @@ timer.Create("botStuckDetector", 1, 0, function()
             continue
         end
 
-        local movedSqr = pos:DistToSqr(state.lastPos)
         local speed2DSqr = bot:GetVelocity():Length2DSqr()
         local hasGoal = IsValid(controller.Target) or isvector(controller.PosGen)
         local embedded = IsPlayerEmbeddedAt(bot, pos)
-        local stalled = hasGoal and speed2DSqr < 36 and movedSqr < 9
+        local stalled = hasGoal and speed2DSqr < 36 or not hasGoal
 
         state.lastPos = pos
 
@@ -309,7 +303,11 @@ timer.Create("botStuckDetector", 1, 0, function()
         end
 
         if state.embeddedCounter > 4 or state.stalledCounter > 4 then
-            MovePlyToFreeSpot(bot, controller)
+            if not hasGoal then
+                ZSB.StartCommand.GetRandomRoamPos(bot.ControllerBot)
+            elseif not MovePlyToFreeSpot(bot, controller) then
+                SendPlayerToRecoverySpawn(bot)
+            end
             ResetStuckState(bot)
         end
     end

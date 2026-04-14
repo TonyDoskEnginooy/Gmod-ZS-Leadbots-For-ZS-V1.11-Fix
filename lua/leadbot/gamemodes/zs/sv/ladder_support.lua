@@ -230,3 +230,16 @@ function ZSB.GetPlayerActiveLadderData(ply, ladderMap)
 
     return bestData
 end
+
+function ZSB.ExitLadder(ply)
+    local ladder = ZSB.GetPlayerActiveLadderData(ply)
+
+    if ladder and ladder.normal then
+        ply:ExitLadder()
+        ply:SetVelocity(ladder.normal * 300)
+
+        return true
+    end
+
+    return false
+end
