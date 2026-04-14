@@ -74,6 +74,7 @@ function ENT:Reset()
     self.CurSegmentIndex = 2
     self.LookAt = angle_zero
     self.LookAtTime = 0
+    self.NextPathRecompute = 0
 
     self.NextStrafe = 0
     self.NextJump = -1
@@ -116,6 +117,12 @@ function ENT:ComputePath()
         return false
     end
 
+    local now = CurTime()
+
+    if self.NextPathRecompute > now then
+        return true
+    end
+
     self.Path = self.Path or self:CreatePath()
 
     self.Path:Compute(self, self.PosGen, function(area, fromArea, ladder, elevator, length)
@@ -125,6 +132,8 @@ function ENT:ComputePath()
     if not self.Path:IsValid() then
         return false
     end
+
+    self.NextPathRecompute = now + 0.65
 
     self.CurSegmentIndex = 2
     return true
