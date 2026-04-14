@@ -4,7 +4,7 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 local SC = ZSB.StartCommand
 
 local RANDOM_JUMP_MIN = 1.8
-local RANDOM_JUMP_MAX = 10
+local RANDOM_JUMP_MAX = 5
 local BOT_DUCK_DELAY = 0.25
 
 function SC.BreakRotatingDoor(bot, doors)
@@ -45,40 +45,33 @@ end
 function SC.HandleJump(bot, controller, currentGoal, now)
     local isJumpArea = AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
 
-    if not (controller.NextJump ~= 0 or controller.NextRandomJump < now)
-        or AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
+    if controller.NextJump == -1
+        or controller.NextJump == 0
+        or controller.NextRandomJump > now
+        or controller.NextJump > now
+        or isJumpArea
         or not bot:IsOnGround()
         or bot:IsFrozen()
-        or bot:Crouching()
     then
         return
     end
 
-    local speed2DSqr = bot:GetVelocity():Length2DSqr()
-    local hasTarget = IsValid(controller.Target)
-
-    if controller.NextJump ~= 0 then
-        if AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP) then
-            return
-        end
-
-        if controller.NextJump < now then
-            local isJumpGoal = currentGoal.type > 1 or isJumpArea
-            if isJumpGoal then
-                controller.NextJump = 0
-            end
-        end
+    local isPanicing = SC.GetRecentCloseThreat(controller) and true or false
+    
+    if isPanicing then
+        controller.NextJump = 0
     end
 
-    if controller.NextRandomJump < now then
-        controller.NextRandomJump = now + math.Rand(RANDOM_JUMP_MIN, RANDOM_JUMP_MAX)
-
-        if speed2DSqr >= 140 * 140 then
-            local jumpChance = hasTarget and 24 or 10
-
+    if controller.NextJump ~= 0 and controller.NextRandomJump < now then
+        local speed2DSqr = bot:GetVelocity():Length2DSqr()
+        
+        if speed2DSqr >= 140 * 140 or speed2DSqr <= 30 * 30 then
+            local jumpChance = hasTarget and 38 or 25
+            
             if math.random(1, 100) <= jumpChance then
                 controller.NextJump = 0
                 controller.NextStrafe = 0
+                controller.NextRandomJump = now + math.Rand(RANDOM_JUMP_MIN, RANDOM_JUMP_MAX)
             end
         end
     end

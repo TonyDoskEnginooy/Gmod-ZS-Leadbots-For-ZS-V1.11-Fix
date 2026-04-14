@@ -34,11 +34,6 @@ function SC.ApplyZombieCheats(bot)
     end
 end
 
-function SC.KillLonelyHordeBot(bot)
-    if leadbot_hordes:GetInt() >= 1 and bot:Team() == TEAM_SURVIVORS and leadbot_quota:GetInt() < 2 then
-        bot:Kill()
-    end
-end
 function SC.GetTemperament(bot)
     return bot.LBConfig.temperament or FALLBACK_TEMPERAMENT
 end

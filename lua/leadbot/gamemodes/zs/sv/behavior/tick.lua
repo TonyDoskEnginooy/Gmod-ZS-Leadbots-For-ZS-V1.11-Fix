@@ -71,6 +71,12 @@ local function TryRedeemZombiePlayer(ply, redeemPlayers)
     end
 end
 
+function KillLonelyHordeBot(quota, bot)
+    if quota < 2 and bot:IsBot() and bot:Team() == TEAM_SURVIVORS then
+        bot:Kill()
+    end
+end
+
 function LeadBot.Tick()
     local players = player.GetAll()
     local totalPlayers = #players
@@ -81,15 +87,15 @@ function LeadBot.Tick()
     local totalZombies = team.NumPlayers(TEAM_ZOMBIE)
     local pendingZombieCount = 0
     local now = CurTime()
-
-    for _, plyOrBot in ipairs(players) do
+    
+    for _, ply in ipairs(players) do
         if csMode then
-            ApplyCounterStrikeRules(plyOrBot)
+            ApplyCounterStrikeRules(ply)
         end
 
-        if plyOrBot:IsLBot() then
+        if ply:IsLBot() then
             pendingZombieCount = TryConvertSurvivorBot(
-                plyOrBot,
+                ply,
                 totalPlayers,
                 minimumZombies,
                 totalZombies,
@@ -97,10 +103,12 @@ function LeadBot.Tick()
                 quota
             )
 
-            TryRespawnBot(plyOrBot, now)
+            TryRespawnBot(ply, now)
         else
-            TryRedeemZombiePlayer(plyOrBot, redeemPlayers)
+            TryRedeemZombiePlayer(ply, redeemPlayers)
         end
+
+        KillLonelyHordeBot(quota, ply)
     end
 
     totalZombies = team.NumPlayers(TEAM_ZOMBIE)

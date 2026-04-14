@@ -40,7 +40,6 @@ function LeadBot.StartCommand(bot, cmd)
         end
     end
 
-    SC.KillLonelyHordeBot(bot)
     SC.ForgetInvalidTarget(bot, controller)
 
     local foundEnts = ZSB.Util:FindEnts(bot)
