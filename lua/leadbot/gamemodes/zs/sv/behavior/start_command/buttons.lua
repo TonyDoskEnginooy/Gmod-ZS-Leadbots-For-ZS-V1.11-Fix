@@ -64,7 +64,9 @@ function SC.BuildActionButtons(bot, controller)
     else
         if controller.NextDuck and controller.NextDuck > CurTime() then
             buttons = bit.bor(buttons, IN_DUCK)
-        elseif controller.NextJump == 0 then
+        end
+
+        if controller.NextJump == 0 then
             controller.NextJump = CurTime() + 1.3
             buttons = bit.bor(buttons, IN_JUMP)
         end

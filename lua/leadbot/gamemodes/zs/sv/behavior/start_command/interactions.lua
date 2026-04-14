@@ -3,8 +3,8 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-local RANDOM_JUMP_MIN = 1.8
-local RANDOM_JUMP_MAX = 5
+local RANDOM_JUMP_MIN = 1
+local RANDOM_JUMP_MAX = 2
 local BOT_DUCK_DELAY = 0.25
 
 function SC.BreakRotatingDoor(bot, doors)
@@ -42,11 +42,11 @@ local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
 end
 
+local slowSqr = 40 * 40
 function SC.HandleJump(bot, controller, currentGoal, now)
     local isJumpArea = AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
 
-    if controller.NextJump == -1
-        or controller.NextJump == 0
+    if controller.NextJump == 0
         or controller.NextRandomJump > now
         or controller.NextJump > now
         or isJumpArea
@@ -57,22 +57,18 @@ function SC.HandleJump(bot, controller, currentGoal, now)
     end
 
     local isPanicing = SC.GetRecentCloseThreat(controller) and true or false
-    
+    local speed2DSqr = bot:GetVelocity():Length2DSqr()
+
     if isPanicing then
         controller.NextJump = 0
     end
 
-    if controller.NextJump ~= 0 and controller.NextRandomJump < now then
-        local speed2DSqr = bot:GetVelocity():Length2DSqr()
+    if speed2DSqr <= slowSqr then
+        local jumpChance = controller.Target and 38 or 25
         
-        if speed2DSqr >= 140 * 140 or speed2DSqr <= 30 * 30 then
-            local jumpChance = hasTarget and 38 or 25
-            
-            if math.random(1, 100) <= jumpChance then
-                controller.NextJump = 0
-                controller.NextStrafe = 0
-                controller.NextRandomJump = now + math.Rand(RANDOM_JUMP_MIN, RANDOM_JUMP_MAX)
-            end
+        if math.random(1, 100) <= jumpChance then
+            controller.NextJump = 0
+            controller.NextRandomJump = now + math.Rand(RANDOM_JUMP_MIN, RANDOM_JUMP_MAX)
         end
     end
 end
