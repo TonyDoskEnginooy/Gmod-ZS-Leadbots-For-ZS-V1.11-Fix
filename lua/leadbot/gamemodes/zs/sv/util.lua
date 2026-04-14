@@ -544,8 +544,8 @@ function UT.IsValidEnemyZombie(bot, target, allowGod)
     return IsValid(bot)
         and IsValid(target)
         and bot:Team() == TEAM_SURVIVORS
-        and target:Team() == TEAM_ZOMBIE
         and target:IsPlayer()
+        and target:Team() == TEAM_ZOMBIE
         and target:Alive()
         and (not target:HasGodMode() or allowGod and target:HasGodMode())
         and UT:CanPerceiveTarget(bot, target)
