@@ -26,26 +26,26 @@ function SC.BuildActionButtons(bot, controller)
         buttons = bit.bor(buttons, IN_ATTACK2)
 
         if secondaryAttack == "poisonzombie_throw" then
-            controller.NextPoisonZombieThrow = CurTime() + 4
+            controller.NextPoisonZombieThrow = now + 4
         end
     elseif SC.ShouldPressAttack(bot, controller) then
         buttons = bit.bor(buttons, IN_ATTACK)
 
         if ZSB.Util.IsActiveSurvivorMelee(bot) then
             -- Create a short hit-and-run window after a melee swing.
-            controller.LastMeleeAttackTime = CurTime()
-            controller.MeleeRetreatUntil = CurTime() + 0.55
+            controller.LastMeleeAttackTime = now
+            controller.MeleeRetreatUntil = now + 0.6
         end
     elseif IsValid(blockedAttackEntity) then
         buttons = bit.bor(buttons, IN_ATTACK)
 
         -- Briefly look at the blocking entity so melee attacks connect more reliably.
         controller.LookAt = (blockedAttackPos - bot:GetShootPos()):Angle()
-        controller.LookAtTime = CurTime() + 0.2
+        controller.LookAtTime = now + 0.2
 
         if ZSB.Util.IsActiveSurvivorMelee(bot) then
-            controller.LastMeleeAttackTime = CurTime()
-            controller.MeleeRetreatUntil = CurTime() + 0.4
+            controller.LastMeleeAttackTime = now
+            controller.MeleeRetreatUntil = now + 0.4
         end
     end
 
@@ -53,7 +53,7 @@ function SC.BuildActionButtons(bot, controller)
         local pos = controller.GoalPos or bot:GetPos()
         local ang = ((pos + bot:GetCurrentViewOffset()) - bot:GetShootPos()):Angle()
 
-        controller.LookAtTime = CurTime() + 0.1
+        controller.LookAtTime = now + 0.1
 
         if pos.z > controller:GetPos().z then
             controller.LookAt = Angle(-45, ang.y, 0)
@@ -63,16 +63,16 @@ function SC.BuildActionButtons(bot, controller)
 
         buttons = bit.bor(buttons, IN_FORWARD)
     else
-        if controller.NextDuck and controller.NextDuck > CurTime() then
+        if controller.NextDuck and controller.NextDuck > now then
             buttons = bit.bor(buttons, IN_DUCK)
         end
 
         if controller.NextJump == 0 then
-            controller.NextJump = CurTime() + 1.3
+            controller.NextJump = now + 1.3
             buttons = bit.bor(buttons, IN_JUMP)
         end
 
-        if not bot:IsOnGround() and controller.NextJump and controller.NextJump > CurTime() then
+        if not bot:IsOnGround() and controller.NextJump and controller.NextJump > now then
             buttons = bit.bor(buttons, IN_DUCK)
         end
     end
