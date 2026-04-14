@@ -442,10 +442,10 @@ function SC.ShouldPressAttack(bot, controller)
                 return false
             end
 
-            return distanceSqr <= 72 * 72 and HasClearShot(bot, controller, target)
+            return distanceSqr <= 72 * 72 and (HasClearShot(bot, controller, target) or math.random(1, 100) <= 40)
         end
 
-        return HasClearShot(bot, controller, target)
+        return HasClearShot(bot, controller, target) or distanceSqr <= 120 * 120 and math.random(1, 100) <= 80
     end
 
     if bot:Team() == TEAM_ZOMBIE then
