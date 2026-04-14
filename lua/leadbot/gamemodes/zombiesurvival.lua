@@ -1,6 +1,9 @@
 -- This module is intended to run with ZS v1.11 Fix by Xalalau
 
-if CLIENT then
+if SERVER then
+    AddCSLuaFile("zs/cl/optimizations.lua")
+elseif CLIENT then
+    include("zs/cl/optimizations.lua")
     return
 end
 

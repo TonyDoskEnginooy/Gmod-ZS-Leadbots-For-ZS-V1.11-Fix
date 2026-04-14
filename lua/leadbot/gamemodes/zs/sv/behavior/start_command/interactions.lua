@@ -3,10 +3,9 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-local STUCK_JUMP_MIN = 0.35
-local STUCK_JUMP_MAX = 0.85
 local RANDOM_JUMP_MIN = 1.8
 local RANDOM_JUMP_MAX = 10
+local BOT_DUCK_DELAY = 0.25
 
 function SC.BreakRotatingDoor(bot, doors)
     if not SC.HasEntries(doors) then return end
@@ -86,15 +85,23 @@ function SC.HandleJump(bot, controller, currentGoal, now)
 end
 
 function SC.HandleCrouch(bot, controller, currentGoal, now)
+    if controller.NextDuck >= now then return end
+    if controller.NextDuckCheck >= now then return end
+    
+    controller.NextDuckCheck = now + BOT_DUCK_DELAY
+
+    if AreaHasAttribute(currentGoal.area, NAV_MESH_CROUCH) then
+        return
+    end
+
     local crouchTrace = util.QuickTrace(
         bot:EyePos(),
         bot:GetForward() * 90 - (bot:GetViewOffsetDucked() * 3),
         bot
     )
 
-    if AreaHasAttribute(currentGoal.area, NAV_MESH_CROUCH)
-        or IsValid(crouchTrace.Entity)
-    then
-        controller.NextDuck = now + 0.1
+    if IsValid(crouchTrace.Entity) then
+        controller.NextDuck = now + BOT_DUCK_DELAY
+        return
     end
 end

@@ -11,3 +11,5 @@ for _, moduleDir in ipairs(moduleDirs) do
         include("leadbot/modules/" .. moduleDir .. "/" .. fileName)
     end
 end
+
+include("leadbot/gamemodes/zombiesurvival.lua")

@@ -80,6 +80,7 @@ function ENT:Reset()
     self.NextJump = -1
     self.NextRandomJump = 0
     self.NextDuck = 0
+    self.NextDuckCheck = 0
     self.StrafeAngle = 0
 
     self.RecentCloseThreat = nil

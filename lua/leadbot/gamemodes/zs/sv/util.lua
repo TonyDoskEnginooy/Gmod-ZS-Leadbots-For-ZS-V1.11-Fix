@@ -190,58 +190,7 @@ local wantedCmdClasses = {
     ["player"] = true,
     ["predicted_viewmodel"] = true
 }
-
-local function CreateWantedEntBuckets()
-    local buckets = {
-        ["NPCs"] = {}
-    }
-
-    for className in pairs(wantedCmdClasses) do
-        buckets[className] = {}
-    end
-
-    return buckets
-end
-
-local function GetEntityScanPoint(ent, referencePos)
-    if not IsValid(ent) then
-        return nil
-    end
-
-    if ent:IsPlayer() or ent:IsNPC() then
-        return GetTargetBodyCenter(ent)
-    end
-
-    if isvector(referencePos) and ent.NearestPoint then
-        local ok, nearestPoint = pcall(ent.NearestPoint, ent, referencePos)
-
-        if ok and isvector(nearestPoint) then
-            return nearestPoint
-        end
-    end
-
-    if ent.WorldSpaceCenter then
-        local ok, worldCenter = pcall(ent.WorldSpaceCenter, ent)
-
-        if ok and isvector(worldCenter) then
-            return worldCenter
-        end
-    end
-
-    if ent.OBBCenter and ent.LocalToWorld then
-        local ok, localCenter = pcall(ent.OBBCenter, ent)
-
-        if ok and isvector(localCenter) then
-            local okWorld, worldCenter = pcall(ent.LocalToWorld, ent, localCenter)
-
-            if okWorld and isvector(worldCenter) then
-                return worldCenter
-            end
-        end
-    end
-
-    return ent:GetPos()
-end
+local wantedCmdClassesSeq = table.GetKeys(wantedCmdClasses)
 
 local BOT_SCAN_RANGE = Vector(1200, 1200, 1200)
 local BOT_SCAN_DELAY = 0.5
@@ -253,10 +202,57 @@ local FACING_DOT_THRESHOLD = 0.72
 
 local entsFindInBox = ents.FindInBox
 local ipairs = ipairs
-local isvector = isvector
+local IsValid = IsValid
+local CurTime = CurTime
+local foundEnts = {
+    -- [bot] = { area = { [1] = ent, ... }, ... }
+}
 local nextBotEntsScan = {
     -- [bot] = { next = time, foundEnts = table }
 }
+
+local function CreateWantedEntBuckets()
+    local buckets = {
+        ["NPCs"] = {}
+    }
+
+    for i=1, #wantedCmdClassesSeq, 1 do
+        buckets[wantedCmdClassesSeq[i]] = {}
+    end
+
+    return buckets
+end
+
+local function RereateWantedEntBuckets(buckets)
+    if #buckets["NPCs"] > 0 then
+        buckets["NPCs"] = {}
+    end
+
+    for i=1, #wantedCmdClassesSeq, 1 do
+        if #buckets[wantedCmdClassesSeq[i]] > 0 then
+            buckets[wantedCmdClassesSeq[i]] = {}
+        end
+    end
+
+    return buckets
+end
+
+local function CreateFoundEntsTable(bot)
+    -- Micro optimization to recreate less tables
+    if not foundEnts[bot] then
+        foundEnts[bot] = {
+            area = CreateWantedEntBuckets(),
+            near = CreateWantedEntBuckets(),
+            facing = CreateWantedEntBuckets()
+        }
+    else
+        foundEnts[bot].area = RereateWantedEntBuckets(foundEnts[bot].area)
+        foundEnts[bot].near = RereateWantedEntBuckets(foundEnts[bot].near)
+        foundEnts[bot].facing = RereateWantedEntBuckets(foundEnts[bot].facing)
+    end
+
+    return foundEnts[bot]
+end
 
 function ZSB.Util:FindEnts(bot)
     if not IsValid(bot) then
@@ -273,60 +269,58 @@ function ZSB.Util:FindEnts(bot)
     local botPos = bot:GetPos()
     local botEyePos = bot:EyePos()
     local botForward = bot:EyeAngles():Forward()
-    local nearEnts = entsFindInBox(botPos - BOT_SCAN_RANGE, botPos + BOT_SCAN_RANGE)
+    local scannedEnts = entsFindInBox(botPos - BOT_SCAN_RANGE, botPos + BOT_SCAN_RANGE)
 
-    local foundEnts = {
-        area = CreateWantedEntBuckets(),
-        near = CreateWantedEntBuckets(),
-        facing = CreateWantedEntBuckets()
-    }
+    local foundEnts = CreateFoundEntsTable(bot)
 
     local areaBuckets = foundEnts.area
     local nearBuckets = foundEnts.near
     local facingBuckets = foundEnts.facing
 
-    for _, ent in ipairs(nearEnts) do
-        if IsValid(ent) then
-            local isNPC = ent:IsNPC()
-            local className = ent:GetClass()
+    for _, ent in ipairs(scannedEnts) do
+        if not IsValid(ent) then
+            continue
+        end
 
-            if wantedCmdClasses[className] or isNPC then
-                local shouldScan = true
+        local isNPC = ent:IsNPC()
+        local className = ent:GetClass()
 
-                if not isNPC and ent:IsPlayer() and not self:CanPerceiveTarget(bot, ent) then
-                    shouldScan = false
-                end
+        if not wantedCmdClasses[className] and not isNPC then
+            continue
+        end
 
-                if shouldScan then
-                    local entPos = GetEntityScanPoint(ent, botEyePos)
+        if ent:IsPlayer() and not self:CanPerceiveTarget(bot, ent) then
+            continue
+        end
 
-                    if isvector(entPos) then
-                        local canNotice = true
+        local bucketName = isNPC and "NPCs" or className
+        local areaBucket = areaBuckets[bucketName]
+        local nearBucket = nearBuckets[bucketName]
+        local facingBucket = facingBuckets[bucketName]
 
-                        if ent:IsPlayer() then
-                            local awarenessFailChance = bot:Team() == TEAM_SURVIVORS and 12 or 8
-                            canNotice = math.random(1, 100) > awarenessFailChance
-                        end
+        areaBucket[#areaBucket + 1] = ent
 
-                        if canNotice and bot:VisibleVec(entPos) then
-                            local bucketName = isNPC and "NPCs" or className
-                            local areaBucket = areaBuckets[bucketName]
-                            local nearBucket = nearBuckets[bucketName]
-                            local facingBucket = facingBuckets[bucketName]
+        local entPos = ent:GetPos()
+        local delta = entPos - botPos
+        local distSqr = delta:LengthSqr()
 
-                            areaBucket[#areaBucket + 1] = ent
+        if distSqr < NEAR_DISTANCE_SQR then
+            nearBucket[#nearBucket + 1] = ent
 
-                            local toEnt = entPos - botEyePos
-                            toEnt:Normalize()
+            local eyeDelta = entPos - botEyePos
+            local eyeDistSqr = eyeDelta:LengthSqr()
 
-                            if botForward:Dot(toEnt) > FACING_DOT_THRESHOLD then
-                                facingBucket[#facingBucket + 1] = ent
-                            end
+            -- Avoid division-by-zero and skip entities at the exact eye position.
+            if eyeDistSqr > 0 then
+                local dot = botForward:Dot(eyeDelta)
 
-                            if entPos:DistToSqr(botPos) < NEAR_DISTANCE_SQR then
-                                nearBucket[#nearBucket + 1] = ent
-                            end
-                        end
+                -- dot > 0 means the entity is in front of the bot.
+                -- The squared comparison avoids sqrt/normalization while checking
+                -- whether the entity is inside the facing threshold cone.
+                if dot > 0 and (dot * dot) > (FACING_DOT_THRESHOLD * FACING_DOT_THRESHOLD * eyeDistSqr) then
+                    -- Only add entities that are actually visible from the bot's view.
+                    if bot:VisibleVec(entPos) then
+                        facingBucket[#facingBucket + 1] = ent
                     end
                 end
             end
@@ -337,6 +331,6 @@ function ZSB.Util:FindEnts(bot)
         next = now + BOT_SCAN_DELAY + math.Rand(BOT_SCAN_JITTER_MIN, BOT_SCAN_JITTER_MAX),
         foundEnts = foundEnts
     }
-
+--PrintTable(foundEnts)
     return foundEnts
 end

@@ -43,6 +43,7 @@ local function IncludeMapOrGamemodeConfig()
     end
 end
 
+AddCSLuaFile("leadbot/gamemodes/zombiesurvival.lua")
 include("leadbot/gamemodes/zombiesurvival.lua")
 IncludeModules()
 IncludeMapOrGamemodeConfig()
