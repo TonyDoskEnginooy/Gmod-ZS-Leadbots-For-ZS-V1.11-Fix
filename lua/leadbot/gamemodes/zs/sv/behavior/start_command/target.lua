@@ -293,13 +293,8 @@ function SC.ClearGoal(controller)
 
     controller.PosGen = nil
     controller.TPos = nil
+    controller.Target = nil
     controller.ForgetTarget = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin
-    controller.NextStrafe = 0
-    controller.NextJump = -1
-    controller.NextRandomJump = 0
-    controller.NextDuck = 0
-    controller.NextDuckCheck = 0
-    controller.StrafeAngle = 0
 end
