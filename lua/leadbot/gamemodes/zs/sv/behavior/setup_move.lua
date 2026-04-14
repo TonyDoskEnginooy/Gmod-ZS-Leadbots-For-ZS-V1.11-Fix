@@ -39,6 +39,6 @@ function LeadBot.SetupMove(bot, cmd, mv)
 
     -- Debug
 
-    SM.DebugBot(bot)
-    SM.DebugPath(controller)
+    --SM.DebugBot(bot)
+    --SM.DebugPath(controller)
 end
