@@ -89,6 +89,8 @@ function ENT:Reset()
     self.RecentCloseThreatUntil = 0
     self.ConserveAmmoWithKnife = false
     self.MeleeRetreatUntil = 0
+    self.NextSelectSurvivorWeapon = 0 
+    self.NextAcquireTemperamentTarget = 0 
 
     self.NextSurvivorBreakAttempt = 0
     self.NextPropThrow = 0

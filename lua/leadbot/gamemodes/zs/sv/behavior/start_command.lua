@@ -51,7 +51,7 @@ function LeadBot.StartCommand(bot, cmd)
 
         if not IsValid(controller.Target) or controller.ForgetTarget < now then
             if math.random(1, 100) <= 85 then
-                SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+                SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
             else
                 SC.AcquireSurvivorBreakTarget(bot, controller, foundEnts)
             end
@@ -62,7 +62,7 @@ function LeadBot.StartCommand(bot, cmd)
             local targetPos = controller.Target:GetPos()
             local distanceSqr = targetPos:DistToSqr(botPos)
 
-            SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
+            SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts, now)
             SC.UpdateGoalFromTarget(bot, controller)
         elseif not controller.PosGen then
             SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
@@ -73,7 +73,7 @@ function LeadBot.StartCommand(bot, cmd)
 
         if not IsValid(controller.Target) or controller.ForgetTarget < now  then
             if math.random(1, 100) <= 60 then
-                SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+                SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
             else
                 SC.AcquireZombieBreakTarget(bot, controller, foundEnts)
             end

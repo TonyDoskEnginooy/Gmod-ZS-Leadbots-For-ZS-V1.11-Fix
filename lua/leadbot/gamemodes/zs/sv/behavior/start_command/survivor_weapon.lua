@@ -3,12 +3,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-if SC._SurvivalWeaponSelectionLoaded then
-    return
-end
-
-SC._SurvivalWeaponSelectionLoaded = true
-
 local SURVIVOR_CLOSE_RANGE_SQR = 220 * 220
 
 local SURVIVOR_ROLE_DEFAULTS = {
@@ -643,7 +637,11 @@ local function SelectMeleeFallback(bot, weapons)
     return false
 end
 
-function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
+function SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts, now)
+    if controller.NextSelectSurvivorWeapon > now then return end
+
+    controller.NextSelectSurvivorWeapon = now + math.Rand(0.7, 1.3)
+
     if bot:Team() ~= TEAM_SURVIVORS then
         controller.ConserveAmmoWithKnife = false
         return

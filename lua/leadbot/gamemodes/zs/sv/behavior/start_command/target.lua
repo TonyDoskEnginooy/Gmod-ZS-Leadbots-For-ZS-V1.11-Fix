@@ -195,7 +195,10 @@ function SC.GetRecentCloseThreat(controller)
     return target
 end
 
-function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+function SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
+    if controller.NextAcquireTemperamentTarget > now then return end
+
+    controller.NextAcquireTemperamentTarget = now + 1.5
     local botTeam = bot:Team()
     local temperament = SC.GetTemperament(bot)
     local recentThreat = SC.GetRecentCloseThreat(controller)
@@ -222,8 +225,11 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
             AddCandidate(candidateSources, recentThreat, SOURCE_PANIC_RECENT)
         end
 
-        if ZSB.Util:Odds(25) then
-            AddCandidateBonus(candidateSources, foundEnts.area["player"], SOURCE_AREA_PLAYER)
+        local chance = math.random(1, 100)
+        local extraScan = chance <= 20 and "near" or chance <= 7 and "area"
+
+        if extraScan then
+            AddCandidateBonus(candidateSources, foundEnts[extraScan]["player"], SOURCE_AREA_PLAYER)
         end
     end
 
