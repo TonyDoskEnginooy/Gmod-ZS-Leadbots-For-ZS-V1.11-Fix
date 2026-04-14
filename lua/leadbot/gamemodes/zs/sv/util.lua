@@ -5,6 +5,44 @@ end
 
 -- ----------------------------------------------
 
+function ZSB.Util.GetPos(target, referencePos)
+    if not IsValid(target) then
+        return nil
+    end
+
+    if isvector(referencePos) and target.NearestPoint then
+        local ok, nearestPoint = pcall(target.NearestPoint, target, referencePos)
+
+        if ok and isvector(nearestPoint) then
+            return nearestPoint
+        end
+    end
+
+    if target.WorldSpaceCenter then
+        local ok, worldCenter = pcall(target.WorldSpaceCenter, target)
+
+        if ok and isvector(worldCenter) then
+            return worldCenter
+        end
+    end
+
+    if target.OBBCenter and target.LocalToWorld then
+        local ok, localCenter = pcall(target.OBBCenter, target)
+
+        if ok and isvector(localCenter) then
+            local okWorld, worldCenter = pcall(target.LocalToWorld, target, localCenter)
+
+            if okWorld and isvector(worldCenter) then
+                return worldCenter
+            end
+        end
+    end
+
+    return target:GetPos()
+end
+
+-- ----------------------------------------------
+
 local WRAITH_INVISIBLE_ALPHA_THRESHOLD = math.Round(255 * 0.25)
 local TORSO_ZOMBIE_CLASS = 9
 local TORSO_AIM_OFFSET = Vector(0, 0, -20)

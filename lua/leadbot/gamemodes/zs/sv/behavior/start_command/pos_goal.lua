@@ -6,15 +6,13 @@ local SC = ZSB.StartCommand
 function SC.UpdateGoalFromTarget(bot, controller)
     if not IsValid(controller.Target) then return end
 
-    if (bot:IsPlayer() and controller.Target:IsPlayer() and bot:Team() ~= controller.Target:Team())
+    if bot:IsPlayer() and controller.Target:IsPlayer() and (
+        bot:Team() ~= controller.Target:Team()
         or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
-    then
+    ) then
         controller.PosGen = controller.Target:GetPos()
-        return
-    end
-
-    if bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
-        controller.PosGen = SC.GetSurvivorBreakTargetPos(controller.Target, bot:GetPos()) or controller.Target:GetPos()
+    elseif bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
+        controller.PosGen = ZSB.Util.GetPos(controller.Target, bot:GetPos())
     end
 end
 

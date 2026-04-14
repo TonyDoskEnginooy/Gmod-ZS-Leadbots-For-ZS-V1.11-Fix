@@ -52,42 +52,6 @@ local function HasSurvivorMeleeWeapon(bot)
     return false
 end
 
-function SC.GetSurvivorBreakTargetPos(target, referencePos)
-    if not IsValid(target) then
-        return nil
-    end
-
-    if isvector(referencePos) and target.NearestPoint then
-        local ok, nearestPoint = pcall(target.NearestPoint, target, referencePos)
-
-        if ok and isvector(nearestPoint) then
-            return nearestPoint
-        end
-    end
-
-    if target.WorldSpaceCenter then
-        local ok, worldCenter = pcall(target.WorldSpaceCenter, target)
-
-        if ok and isvector(worldCenter) then
-            return worldCenter
-        end
-    end
-
-    if target.OBBCenter and target.LocalToWorld then
-        local ok, localCenter = pcall(target.OBBCenter, target)
-
-        if ok and isvector(localCenter) then
-            local okWorld, worldCenter = pcall(target.LocalToWorld, target, localCenter)
-
-            if okWorld and isvector(worldCenter) then
-                return worldCenter
-            end
-        end
-    end
-
-    return target:GetPos()
-end
-
 function SC.IsSurvivorBreakTarget(bot, target)
     if not IsValid(bot) or bot:Team() ~= TEAM_SURVIVORS then
         return false
@@ -136,7 +100,7 @@ function SC.ShouldSwingAtSurvivorBreakTarget(bot, controller, target)
         return false
     end
 
-    local targetPos = SC.GetSurvivorBreakTargetPos(target, bot:GetShootPos())
+    local targetPos = ZSB.Util.GetPos(target, bot:GetShootPos())
     if not isvector(targetPos) then
         return false
     end
@@ -157,7 +121,7 @@ local function ScoreSurvivorBreakTarget(bot, controller, target, sourceTag)
         return nil
     end
 
-    local targetPos = SC.GetSurvivorBreakTargetPos(target, bot:GetPos())
+    local targetPos = ZSB.Util.GetPos(target, bot:GetPos())
     if not isvector(targetPos) then
         return nil
     end
