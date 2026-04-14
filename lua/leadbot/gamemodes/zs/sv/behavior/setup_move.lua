@@ -29,10 +29,13 @@ function LeadBot.SetupMove(bot, cmd, mv)
 
     SM.SetEyeAngles(bot, controller, currentGoal, moveAngles, strategy)
 
+    local distanceSqr = nil
+
     if IsValid(controller.Target) then
-        local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
-        SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
+        distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
     end
+
+    SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
 
     -- Apply movement specializations
 

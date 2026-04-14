@@ -3,6 +3,10 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 
 local SM = ZSB.SetupMove
 
+local GODMODE_RETREAT_MAX_DISTANCE_SQR = 550 * 550
+local GODMODE_RETREAT_IMMEDIATE_DISTANCE_SQR = 190 * 190
+local GODMODE_RETREAT_APPROACH_SPEED = 55
+
 local function TraceIgnoringProps(startPos, endPos, controller, bot)
     return util.TraceLine({
         start = startPos,
@@ -17,11 +21,7 @@ local function TraceIgnoringProps(startPos, endPos, controller, bot)
     })
 end
 
-local function ApplyRetreatStrafe(controller, mv, trace)
-    if not IsValid(trace.Entity) then
-        return
-    end
-
+local function ApplyRetreatSideSpeed(controller, mv)
     if controller.StrafeAngle == 1 then
         mv:SetSideSpeed(1500)
     elseif controller.StrafeAngle == 2 then
@@ -29,16 +29,95 @@ local function ApplyRetreatStrafe(controller, mv, trace)
     end
 end
 
-function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
-    if controller.NextRetreatTrace < now then
-        controller.NextRetreatTrace = now + 0.5
-        controller.RetreatTrace = TraceIgnoringProps(bot:EyePos(), bot:EyePos() + bot:GetAimVector() * 100000, controller, bot)
+local function GetZombieThreats(bot)
+    if bot:Team() ~= TEAM_SURVIVORS then
+        return nil, 0
     end
 
+    local foundEnts = ZSB.Util:FindEnts(bot)
+    if not foundEnts then
+        return nil, 0
+    end
+
+    local nearbyPlayers = foundEnts.near["player"]
+    local threatGodMode
+    local totalThreats = 0
+    for _, candidate in RandomPairs(nearbyPlayers) do
+        if ZSB.Util.IsValidEnemyZombie(bot, candidate, true) then
+            totalThreats = totalThreats + 1
+            if candidate:HasGodMode() then
+                threatGodMode = candidate
+                break
+            end
+        end
+    end
+
+    if not threatGodMode then
+        return nil, totalThreats
+    end
+
+    local delta = bot:GetPos() - threatGodMode:GetPos()
+    local distanceSqr = delta:LengthSqr()
+
+    if distanceSqr > GODMODE_RETREAT_MAX_DISTANCE_SQR then
+        return nil, totalThreats
+    end
+
+    if distanceSqr <= GODMODE_RETREAT_IMMEDIATE_DISTANCE_SQR then
+        return threatGodMode, totalThreats
+    end
+
+    local velocity = threatGodMode:GetVelocity()
+    local velocitySqr = velocity:LengthSqr()
+
+    if velocitySqr <= 1 then
+        return nil, totalThreats
+    end
+
+    local dot = velocity:Dot(delta)
+
+    if dot <= 0 then
+        return nil, totalThreats
+    end
+
+    if distanceSqr <= 0 then
+        return threatGodMode, totalThreats
+    end
+    
+    if (dot * dot) >= (GODMODE_RETREAT_APPROACH_SPEED * GODMODE_RETREAT_APPROACH_SPEED * distanceSqr) then
+        return threatGodMode, totalThreats
+    end
+
+    return nil, totalThreats
+end
+
+function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
+    if controller.NextRetreatScans < now then
+        controller.NextRetreatScans = now + 0.5
+        controller.RetreatTrace = TraceIgnoringProps(bot:EyePos(), bot:EyePos() + bot:GetAimVector() * 100000, controller, bot)
+        controller.RetreatGodModeThread, controller.RetreatTotalThreats = GetZombieThreats(bot)
+    end
+
+    local target = controller.Target
+    local threatGodMode = controller.RetreatGodModeThread
+    local totalThreats = controller.RetreatTotalThreats
     local trace = controller.RetreatTrace
 
-    if not IsValid(controller.Target) or (not controller.Target:IsPlayer() and not controller.Target:IsNPC()) then
-        mv:SetForwardSpeed(1200)
+    if bot:Team() == TEAM_SURVIVORS and (
+        IsValid(threatGodMode)
+        or totalThreats > 2 
+    ) then
+        mv:SetForwardSpeed(-1200)
+        ApplyRetreatSideSpeed(controller, mv)
+        return
+    end
+
+    if bot:Team() == TEAM_SURVIVORS and totalThreats == 1 then
+        ApplyRetreatSideSpeed(controller, mv)
+        return
+    end
+
+    if not IsValid(target) or (not target:IsPlayer() and not target:IsNPC()) then
         return
     end
 
@@ -46,22 +125,20 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
         mv:SetForwardSpeed(1200)
 
         if distanceSqr > 45000 and bot:LBGetzomSkill() == 1 and IsValid(trace.Entity) then
-            if controller.StrafeAngle == 1 then
-                mv:SetSideSpeed(1500)
-            elseif controller.StrafeAngle == 2 then
-                mv:SetSideSpeed(-1500)
-            end
+            ApplyRetreatSideSpeed(controller, mv)
         end
 
         return
     end
 
-    if bot:Team() == TEAM_SURVIVORS and IsValid(controller.Target) then
+    if bot:Team() == TEAM_SURVIVORS then
         if controller.ConserveAmmoWithKnife then
-            if (controller.MeleeRetreatUntil or 0) > CurTime() then
+            if (controller.MeleeRetreatUntil or 0) > now then
                 if distanceSqr <= 150 * 150 then
                     mv:SetForwardSpeed(-1200)
-                    ApplyRetreatStrafe(controller, mv, trace)
+                    if IsValid(trace.Entity) then
+                        ApplyRetreatSideSpeed(controller, mv)
+                    end
                 else
                     controller.MeleeRetreatUntil = 0
                     mv:SetForwardSpeed(0)
@@ -98,11 +175,7 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
         end
 
         if bot:LBGetsurvSkill() == 0 and IsValid(trace.Entity) then
-            if controller.StrafeAngle == 1 then
-                mv:SetSideSpeed(1500)
-            elseif controller.StrafeAngle == 2 then
-                mv:SetSideSpeed(-1500)
-            end
+            ApplyRetreatSideSpeed(controller, mv)
         end
 
         return
@@ -110,25 +183,15 @@ function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
 
     if distanceSqr <= 45000 and IsValid(trace.Entity) then
         mv:SetForwardSpeed(-1200)
-
-        if controller.StrafeAngle == 1 then
-            mv:SetSideSpeed(1500)
-        elseif controller.StrafeAngle == 2 then
-            mv:SetSideSpeed(-1500)
-        end
+        ApplyRetreatSideSpeed(controller, mv)
     end
 
     if bot:Health() <= 40 and IsValid(trace.Entity) then
-        local target = controller.Target
         local isDangerousZombie = target:IsPlayer()
             and (target:GetZombieClass() == 2 or (target:GetZombieClass() > 5 and target:GetZombieClass() < 9))
 
         if isDangerousZombie or target:IsNPC() then
-            if controller.StrafeAngle == 1 then
-                mv:SetSideSpeed(1500)
-            elseif controller.StrafeAngle == 2 then
-                mv:SetSideSpeed(-1500)
-            end
+            ApplyRetreatSideSpeed(controller, mv)
         end
     end
 end

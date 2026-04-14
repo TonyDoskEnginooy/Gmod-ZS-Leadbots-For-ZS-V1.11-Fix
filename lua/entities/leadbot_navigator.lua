@@ -82,6 +82,7 @@ function ENT:Reset()
     self.HasClearShot = false
     self.NextBlockedAttackEntity = 0
     self.RetreatGodModeThread = false
+    self.RetreatTotalThreats = 0
 
     self.NextStrafe = 0
     self.NextJump = -1
