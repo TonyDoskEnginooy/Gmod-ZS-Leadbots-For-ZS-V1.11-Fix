@@ -1,166 +1,117 @@
+local IsValid = IsValid
+local CurTime = CurTime
+local pairs = pairs
+local math_max = math.max
+local math_Clamp = math.Clamp
+
 ZSB = ZSB or {}
 ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
 
-local CLOSE_THREAT_DISTANCE_SQR = 220 * 220
-local FACING_THREAT_DISTANCE_SQR = 320 * 320
-local RECENT_THREAT_DISTANCE_SQR = 260 * 260
 local SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR = 180 * 180
 
-local NEXT_TARGET_LOAD_REFRESH = 0
-local TARGET_LOAD = setmetatable({}, { __mode = "k" })
+local CHEM_ZOMBIE_AVOID_CHANCE = 65
 
-local function IsEnemyCandidate(bot, ent)
-    if not IsValid(ent) or ent == bot then return false end
+local SOURCE_FACING_PLAYER = 1
+local SOURCE_NEAR_NPC = 2
+local SOURCE_AREA_NPC = 3
+local SOURCE_PANIC_RECENT = 4
 
-    if ent:IsPlayer() then
-        return ent:Alive()
-            and ent:Team() ~= bot:Team()
-            and not ent:HasGodMode()
-            and ZSB.Util:CanPerceiveTarget(bot, ent)
-    end
+local SOURCE_PRIORITY = {
+    [SOURCE_FACING_PLAYER] = 10,
+    [SOURCE_NEAR_NPC] = 20,
+    [SOURCE_AREA_NPC] = 30,
+    [SOURCE_PANIC_RECENT] = 40
+}
 
-    return ent:IsNPC() and bot:Team() == TEAM_SURVIVORS
-end
+local SOURCE_BASE_BONUS = {
+    [SOURCE_FACING_PLAYER] = 220,
+    [SOURCE_NEAR_NPC] = 140,
+    [SOURCE_AREA_NPC] = 55,
+    [SOURCE_PANIC_RECENT] = 300
+}
 
 local function ShouldAvoidChemZombie(bot, ent)
     if not ent:IsPlayer() or bot:Team() ~= TEAM_SURVIVORS or not ent.GetZombieClass then
         return false
     end
 
-    return ent:GetZombieClass() == 4 and (ZSB.Util:Odds(25) or ent:GetPos():DistToSqr(bot:GetPos()) <= 67500)
+    return ent:GetZombieClass() == 4 and (ZSB.Util:Odds(CHEM_ZOMBIE_AVOID_CHANCE) or ent:GetPos():DistToSqr(bot:GetPos()) <= 67500)
 end
 
-local function ClearTargetLoad()
-    for ent in pairs(TARGET_LOAD) do
-        TARGET_LOAD[ent] = nil
+local function AddCandidate(candidateSources, ent, sourceType)
+    if not IsValid(ent) then
+        return
+    end
+
+    local currentSourceType = candidateSources[ent]
+
+    if currentSourceType == nil or SOURCE_PRIORITY[sourceType] > SOURCE_PRIORITY[currentSourceType] then
+        candidateSources[ent] = sourceType
     end
 end
 
-local function RefreshTargetLoad()
-    if NEXT_TARGET_LOAD_REFRESH > CurTime() then return end
-
-    ClearTargetLoad()
-
-    for _, ply in ipairs(player.GetBots()) do
-        if IsValid(ply) and ply.IsLBot and ply:IsLBot() then
-            local controller = ply:GetController()
-
-            if IsValid(controller) and IsValid(controller.Target) then
-                TARGET_LOAD[controller.Target] = (TARGET_LOAD[controller.Target] or 0) + 1
-            end
-        end
+local function AddCandidateBonus(candidateSources, list, sourceType)
+    if not SC.HasEntries(list) then
+        return
     end
 
-    NEXT_TARGET_LOAD_REFRESH = CurTime() + 0.2
+    for i = 1, #list do
+        AddCandidate(candidateSources, list[i], sourceType)
+    end
 end
 
-local function ScoreTarget(bot, controller, target, sourceTag)
-    if not IsEnemyCandidate(bot, target) or ShouldAvoidChemZombie(bot, target) then
+local function ScoreTargetFast(ctx, target, sourceType)
+    if not SC.IsEnemyCandidate(ctx.bot, target) then
         return nil
     end
 
-    local temperament = SC.GetTemperament(bot)
-    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
-    local score = 0
+    local avoidChemZombie = ShouldAvoidChemZombie(ctx.bot, target)
 
-    if target:IsPlayer() then
+    if avoidChemZombie then
+        return nil
+    end
+
+    local targetPos = target:GetPos()
+    local distanceSqr = ctx.botPos:DistToSqr(targetPos)
+    local isPlayer = target:IsPlayer()
+    local isNPC = not isPlayer and target:IsNPC()
+
+    if not isPlayer and not isNPC then
+        return nil
+    end
+
+    local isCurrentTarget = target == ctx.currentTarget
+    local score = SOURCE_BASE_BONUS[sourceType] or 0
+
+    if isPlayer then
         score = score + 1350
-        score = score + math.Clamp((100 - target:Health()) * temperament.preferWeak * 1.5, 0, 180)
-    elseif target:IsNPC() then
+        score = score + math_Clamp((100 - target:Health()) * ctx.preferWeakScale, 0, 180)
+    else
         score = score + 900
     end
 
     score = score + SC.GetDistanceScore(distanceSqr)
 
-    if sourceTag == "facing_player" then
-        score = score + 220
-    elseif sourceTag == "near_player" or sourceTag == "near_npc" then
-        score = score + 140
-    elseif sourceTag == "area_player" or sourceTag == "area_npc" then
-        score = score + 55
+    if isCurrentTarget then
+        score = score + ctx.holdBonus
     end
 
-    if target == controller.Target then
-        score = score + temperament.holdBonus
-    end
-
-    local load = TARGET_LOAD[target] or 0
-
-    if target == controller.Target and load > 0 then
-        load = load - 1
-    end
-
-    local loadPenalty = temperament.loadPenalty
-
-    if bot:Team() == TEAM_SURVIVORS and target:IsPlayer() then
-        loadPenalty = math.max(loadPenalty, 125)
-    end
-
-    score = score - (load * loadPenalty)
-    score = score + SC.StableNoise(bot, target, temperament.imperfection)
+    score = score + SC.StableNoise(ctx.bot, target, ctx.imperfection)
 
     return score
 end
 
-local function ConsiderBestTarget(bot, controller, state, list, sourceTag, scorer)
-    if not SC.HasEntries(list) then return end
+local function EvaluateCandidateBonuses(ctx, state, candidateSources)
+    for target, sourceType in pairs(candidateSources) do
+        local score = ScoreTargetFast(ctx, target, sourceType)
 
-    for _, ent in ipairs(list) do
-        if IsValid(ent) then
-            local score = scorer(bot, controller, ent, sourceTag)
-
-            if score and score > state.bestScore then
-                state.bestScore = score
-                state.bestTarget = ent
-            end
+        if score and score > state.bestScore then
+            state.bestScore = score
+            state.bestTarget = target
         end
     end
-end
-
-local function ScoreEmergencySurvivorThreat(bot, controller, target, sourceTag)
-    if not SC.IsValidEnemyZombie(bot, target) or ShouldAvoidChemZombie(bot, target) then
-        return nil
-    end
-
-    local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
-    local recentThreat = SC.GetRecentCloseThreat(controller)
-    local maxDistanceSqr = CLOSE_THREAT_DISTANCE_SQR
-
-    if sourceTag == "panic_facing_player" then
-        maxDistanceSqr = FACING_THREAT_DISTANCE_SQR
-    elseif target == recentThreat then
-        maxDistanceSqr = RECENT_THREAT_DISTANCE_SQR
-    end
-
-    if distanceSqr > maxDistanceSqr then
-        return nil
-    end
-
-    local score = 4200 - (distanceSqr * 0.012)
-
-    if sourceTag == "panic_facing_player" then
-        score = score + 850
-    end
-
-    if target == recentThreat then
-        score = score + 1700
-    end
-
-    if distanceSqr <= 110 * 110 then
-        score = score + 1300
-    elseif distanceSqr <= 170 * 170 then
-        score = score + 800
-    else
-        score = score + 250
-    end
-
-    if target == controller.Target then
-        score = score + 120
-    end
-
-    return score
 end
 
 function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
@@ -171,7 +122,9 @@ function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
     local nearPlayers = foundEnts and foundEnts.near and foundEnts.near["player"] or nil
 
     if SC.HasEntries(nearPlayers) then
-        for _, target in ipairs(nearPlayers) do
+        for i = 1, #nearPlayers do
+            local target = nearPlayers[i]
+
             if SC.IsValidEnemyZombie(bot, target) then
                 return true
             end
@@ -181,9 +134,13 @@ function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
     local facingPlayers = foundEnts and foundEnts.facing and foundEnts.facing["player"] or nil
 
     if SC.HasEntries(facingPlayers) then
-        for _, target in ipairs(facingPlayers) do
+        local botPos = bot:GetPos()
+
+        for i = 1, #facingPlayers do
+            local target = facingPlayers[i]
+
             if SC.IsValidEnemyZombie(bot, target)
-                and bot:GetPos():DistToSqr(target:GetPos()) <= SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR
+                and botPos:DistToSqr(target:GetPos()) <= SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR
             then
                 return true
             end
@@ -191,33 +148,6 @@ function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
     end
 
     return false
-end
-
-function SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
-    if bot:Team() ~= TEAM_SURVIVORS then
-        return nil
-    end
-
-    local state = {
-        bestScore = -math.huge,
-        bestTarget = nil
-    }
-
-    local recentThreat = SC.GetRecentCloseThreat(controller)
-
-    if IsValid(recentThreat) then
-        local score = ScoreEmergencySurvivorThreat(bot, controller, recentThreat, "panic_recent")
-
-        if score and score > state.bestScore then
-            state.bestScore = score
-            state.bestTarget = recentThreat
-        end
-    end
-
-    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "panic_facing_player", ScoreEmergencySurvivorThreat)
-    ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "panic_area_player", ScoreEmergencySurvivorThreat)
-
-    return state.bestTarget
 end
 
 function SC.SetRecentCloseThreat(controller, target, duration)
@@ -232,7 +162,7 @@ function SC.SetRecentCloseThreat(controller, target, duration)
     end
 
     controller.RecentCloseThreat = target
-    controller.RecentCloseThreatUntil = CurTime() + math.max(duration or 0, 0)
+    controller.RecentCloseThreatUntil = CurTime() + math_max(duration or 0, 0)
 end
 
 function SC.GetRecentCloseThreat(controller)
@@ -263,30 +193,41 @@ function SC.GetRecentCloseThreat(controller)
 end
 
 function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
-    RefreshTargetLoad()
+    local botTeam = bot:Team()
+    local temperament = SC.GetTemperament(bot)
+    local recentThreat = SC.GetRecentCloseThreat(controller)
 
-    if math.random(1, 100) <= 40 then
-        local emergencyTarget = SC.AcquireEmergencySurvivorThreat(bot, controller, foundEnts)
-
-        if IsValid(emergencyTarget) then
-            controller.Target = emergencyTarget
-            controller.ForgetTarget = CurTime() + 1.1
-            return
-        end
-    end
+    local ctx = {
+        bot = bot,
+        botPos = bot:GetPos(),
+        botTeam = botTeam,
+        currentTarget = controller.Target,
+        recentThreat = recentThreat,
+        holdBonus = temperament.holdBonus,
+        imperfection = temperament.imperfection,
+        preferWeakScale = temperament.preferWeak * 1.5
+    }
 
     local state = {
         bestScore = -math.huge,
         bestTarget = nil
     }
+    local candidateSources = {}
+    
+    if botTeam == TEAM_SURVIVORS then
+        if IsValid(recentThreat) then
+            AddCandidate(candidateSources, recentThreat, SOURCE_PANIC_RECENT)
+        end
+    end
 
-    ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreTarget)
+    AddCandidateBonus(candidateSources, foundEnts.facing["player"], SOURCE_FACING_PLAYER)
+    AddCandidateBonus(candidateSources, foundEnts.near["NPCs"], SOURCE_NEAR_NPC)
 
-    if IsValid(state.bestTarget) and bot:Team() == TEAM_ZOMBIE then
-        --ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreTarget)
-        --ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreTarget)
-        ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreTarget)
+    EvaluateCandidateBonuses(ctx, state, candidateSources)
+
+    if not IsValid(state.bestTarget) and ctx.botTeam == TEAM_ZOMBIE then
+        AddCandidateBonus(candidateSources, foundEnts.area["player"], SOURCE_AREA_NPC)
+        EvaluateCandidateBonuses(ctx, state, candidateSources)
     end
 
     if IsValid(state.bestTarget) then
