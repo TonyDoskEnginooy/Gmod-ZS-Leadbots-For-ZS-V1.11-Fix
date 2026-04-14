@@ -14,21 +14,24 @@ local SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR = 180 * 180
 local CHEM_ZOMBIE_AVOID_CHANCE = 65
 
 local SOURCE_FACING_PLAYER = 1
-local SOURCE_NEAR_NPC = 2
-local SOURCE_AREA_NPC = 3
-local SOURCE_PANIC_RECENT = 4
+local SOURCE_AREA_PLAYER = 2
+local SOURCE_NEAR_NPC = 3
+local SOURCE_AREA_NPC = 4
+local SOURCE_PANIC_RECENT = 5
 
 local SOURCE_PRIORITY = {
     [SOURCE_FACING_PLAYER] = 10,
-    [SOURCE_NEAR_NPC] = 20,
-    [SOURCE_AREA_NPC] = 30,
-    [SOURCE_PANIC_RECENT] = 40
+    [SOURCE_AREA_PLAYER] = 20,
+    [SOURCE_NEAR_NPC] = 30,
+    [SOURCE_AREA_NPC] = 40,
+    [SOURCE_PANIC_RECENT] = 50
 }
 
 local SOURCE_BASE_BONUS = {
     [SOURCE_FACING_PLAYER] = 220,
-    [SOURCE_NEAR_NPC] = 140,
-    [SOURCE_AREA_NPC] = 55,
+    [SOURCE_AREA_PLAYER] = 140,
+    [SOURCE_NEAR_NPC] = 55,
+    [SOURCE_AREA_NPC] = 12,
     [SOURCE_PANIC_RECENT] = 300
 }
 
@@ -217,6 +220,10 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     if botTeam == TEAM_SURVIVORS then
         if IsValid(recentThreat) then
             AddCandidate(candidateSources, recentThreat, SOURCE_PANIC_RECENT)
+        end
+
+        if ZSB.Util:Odds(25) then
+            AddCandidateBonus(candidateSources, foundEnts.area["player"], SOURCE_AREA_PLAYER)
         end
     end
 
