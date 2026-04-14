@@ -9,13 +9,10 @@ local leadbot_quota = GetConVar("leadbot_quota")
 
 local FALLBACK_TEMPERAMENT = {
     name = "rusher",
-    loadPenalty = 60,
     holdBonus = 220,
     imperfection = 30,
     preferWeak = 1.0,
-    obstacleBias = 0,
-    flankBias = 0.15,
-    moveSpeedMul = 1.0
+    obstacleBias = 0
 }
 
 
@@ -75,6 +72,21 @@ function SC.IsValidEnemyZombie(bot, target)
         and target:Alive()
         and not target:HasGodMode()
         and ZSB.Util:CanPerceiveTarget(bot, target)
+end
+
+function SC.IsEnemyCandidate(bot, ent)
+    if not IsValid(ent) or ent == bot then
+        return false
+    end
+
+    if ent:IsPlayer() then
+        return ent:Alive()
+            and ent:Team() ~= bot:Team()
+            and not ent:HasGodMode()
+            and ZSB.Util:CanPerceiveTarget(bot, ent)
+    end
+
+    return ent:IsNPC() and bot:Team() == TEAM_SURVIVORS
 end
 
 function SC.IsIgnoredPropModel(model)

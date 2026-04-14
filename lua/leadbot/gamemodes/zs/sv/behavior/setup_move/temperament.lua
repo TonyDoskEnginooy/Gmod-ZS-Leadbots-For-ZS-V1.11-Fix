@@ -4,9 +4,7 @@ ZSB.SetupMove = ZSB.SetupMove or {}
 local SM = ZSB.SetupMove
 
 local FALLBACK_TEMPERAMENT = {
-    name = "rusher",
-    flankBias = 0.15,
-    moveSpeedMul = 1.0
+    name = "rusher"
 }
 
 local function GetTemperament(bot)
@@ -41,6 +39,6 @@ function SM.ApplyTemperamentMovement(bot, controller, mv)
             mv:SetForwardSpeed(1400)
         end
     elseif temperament.name == "rusher" then
-        mv:SetForwardSpeed(1200 * temperament.moveSpeedMul)
+        mv:SetForwardSpeed(1200)
     end
 end

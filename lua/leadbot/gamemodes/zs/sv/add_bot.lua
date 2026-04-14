@@ -100,58 +100,38 @@ local defaultBotNames = {
 local TEMPERAMENTS = {
     {
         name = "rusher",
-        weight = 30,
-        loadPenalty = 55,
         holdBonus = 240,
         imperfection = 25,
         preferWeak = 1.2,
-        obstacleBias = 0,
-        flankBias = 0.10,
-        moveSpeedMul = 1.08
+        obstacleBias = 0
     },
     {
         name = "flanker",
-        weight = 20,
-        loadPenalty = 190,
         holdBonus = 150,
         imperfection = 45,
         preferWeak = 0.9,
-        obstacleBias = -30,
-        flankBias = 0.95,
-        moveSpeedMul = 1.00
+        obstacleBias = -30
     },
     {
         name = "breaker",
-        weight = 15,
-        loadPenalty = 110,
         holdBonus = 170,
         imperfection = 35,
         preferWeak = 0.8,
-        obstacleBias = 170,
-        flankBias = 0.25,
-        moveSpeedMul = 0.98
+        obstacleBias = 170
     },
     {
         name = "drifter",
-        weight = 20,
-        loadPenalty = 240,
         holdBonus = 90,
         imperfection = 95,
         preferWeak = 0.7,
-        obstacleBias = 40,
-        flankBias = 0.55,
-        moveSpeedMul = 0.92
+        obstacleBias = 40
     },
     {
         name = "berserker",
-        weight = 15,
-        loadPenalty = 20,
         holdBonus = 300,
         imperfection = 20,
         preferWeak = 1.4,
-        obstacleBias = -60,
-        flankBias = 0.05,
-        moveSpeedMul = 1.12
+        obstacleBias = -60
     }
 }
 
@@ -171,23 +151,7 @@ local leadbot_strategy = GetConVar("leadbot_strategy")
 local sv_cheats = GetConVar("sv_cheats")
 
 local function PickTemperament()
-    local totalWeight = 0
-
-    for _, temperament in ipairs(TEMPERAMENTS) do
-        totalWeight = totalWeight + temperament.weight
-    end
-
-    local roll = math.Rand(0, totalWeight)
-
-    for _, temperament in ipairs(TEMPERAMENTS) do
-        roll = roll - temperament.weight
-
-        if roll <= 0 then
-            return table.Copy(temperament)
-        end
-    end
-
-    return table.Copy(TEMPERAMENTS[1])
+    return table.Copy(table.Random(TEMPERAMENTS))
 end
 
 local function SplitCSV(str)
