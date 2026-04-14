@@ -98,10 +98,15 @@ local function UpdateBotLadderEscapeState(ply, state)
     if state.nextLadderEscape > 0 and state.nextLadderEscape <= now then
         local ladder = ZSB.GetPlayerActiveLadderData(ply)
 
-        ply:ExitLadder()
-        ply:SetVelocity(ladder.normal * 300)
+        if IsValid(ladder) then
+            ply:ExitLadder()
+            ply:SetVelocity(ladder.normal * 300)
+            state.nextLadderEscape = 0
 
-        state.nextLadderEscape = 0
+            return true
+        end
+
+        return false
     end
 
     return true
