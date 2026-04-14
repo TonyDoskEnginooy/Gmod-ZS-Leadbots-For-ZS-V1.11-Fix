@@ -8,6 +8,8 @@ end
 local WRAITH_INVISIBLE_ALPHA_THRESHOLD = math.Round(255 * 0.25)
 local TORSO_ZOMBIE_CLASS = 9
 local TORSO_AIM_OFFSET = Vector(0, 0, -20)
+local FACING_DOT_THRESHOLD = 0.55
+local FACING_DOT_THRESHOLD_SQR = FACING_DOT_THRESHOLD * FACING_DOT_THRESHOLD
 
 local function GetZombieClassName(bot)
     if not IsValid(bot) or not bot.GetZombieClass then
@@ -74,13 +76,13 @@ function ZSB.Util:IsFacingEnt(ent1, ent2)
         return false
     end
 
-    local eyePos = ent1:EyePos()
-    local forward = ent1:EyeAngles():Forward()
-    local toEnt = ent2:GetPos() - eyePos
+    local pos = ent1:WorldSpaceCenter()
+    local forward = ent1:Forward()
+    local toEnt = ent2:WorldSpaceCenter() - pos
 
-    toEnt:Normalize()
+    local dp = forward:Dot(toEnt)
 
-    return forward:Dot(toEnt) > 0.55
+    return dp > 0 and (dp * dp) > (toEnt:LengthSqr() * FACING_DOT_THRESHOLD_SQR)
 end
 
 -- ----------------------------------------------
@@ -180,7 +182,7 @@ local wantedCmdClasses = {
 }
 local wantedCmdClassesSeq = table.GetKeys(wantedCmdClasses)
 
-local MAX_SCAN_RANGE = 1200
+local MAX_SCAN_RANGE = 1600
 local BOT_SCAN_RANGE = Vector(MAX_SCAN_RANGE, MAX_SCAN_RANGE, MAX_SCAN_RANGE)
 local BOT_SCAN_DELAY = 0.5
 local BOT_SCAN_JITTER_MIN = -0.1
@@ -189,7 +191,6 @@ local NEAR_DISTANCE = 250
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
 local FACING_DISTANCE = MAX_SCAN_RANGE
 local FACING_DISTANCE_SQR = FACING_DISTANCE * FACING_DISTANCE
-local FACING_DOT_THRESHOLD = 0.72
 
 local entsFindInBox = ents.FindInBox
 local ipairs = ipairs
@@ -310,7 +311,7 @@ function ZSB.Util:FindEnts(bot)
                 -- dot > 0 means the entity is in front of the bot.
                 -- The squared comparison avoids sqrt/normalization while checking
                 -- whether the entity is inside the facing threshold cone.
-                if dot > 0 and (dot * dot) > (FACING_DOT_THRESHOLD * FACING_DOT_THRESHOLD * eyeDistSqr) then
+                if dot > 0 and (dot * dot) > (FACING_DOT_THRESHOLD_SQR * eyeDistSqr) then
                     -- Only add entities that are actually visible from the bot's view.
                     if bot:VisibleVec(entPos) then
                         facingBucket[#facingBucket + 1] = ent
