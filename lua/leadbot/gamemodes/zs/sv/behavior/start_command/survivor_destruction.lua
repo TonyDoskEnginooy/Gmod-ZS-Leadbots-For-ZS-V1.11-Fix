@@ -117,10 +117,6 @@ local function ScoreSurvivorBreakTarget(bot, controller, target, sourceTag)
         return nil
     end
 
-    if target == controller.LastObstacleTarget and controller.ObstacleTargetRetryUntil > CurTime() then
-        return nil
-    end
-
     local targetPos = ZSB.Util.GetPos(target, bot:GetPos())
     if not isvector(targetPos) then
         return nil

@@ -4,15 +4,11 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 local SC = ZSB.StartCommand
 
 local function ScoreZombieObstacleTarget(bot, controller, target)
-    if not ZSB.Map:GetValue("zombiePropCheck", false) then
+    if not ZSB.Map:GetValue("zombiePropCheck") then
         return false
     end
 
     if not SC.IsSimpleObstacleTarget(bot, target) then
-        return nil
-    end
-
-    if target == controller.LastObstacleTarget and controller.ObstacleTargetRetryUntil > CurTime() then
         return nil
     end
 

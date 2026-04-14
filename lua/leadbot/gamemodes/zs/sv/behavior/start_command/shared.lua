@@ -122,3 +122,65 @@ function SC.IsActiveSurvivorMelee(bot)
         or className:find("machete", 1, true)
         or className:find("melee", 1, true)
 end
+
+function SC.IsFragileMapBreakable(ent)
+    if not IsValid(ent) or ent:GetClass() ~= "func_breakable" then
+        return false
+    end
+
+    if not ZSB.Map:GetValue("zombieBreakCheck") then
+        return false
+    end
+
+    if not ent.GetMaxHealth then
+        return true
+    end
+
+    return ent:GetMaxHealth() <= 500
+end
+
+function SC.IsSimpleObstacleTarget(_, ent)
+    if not IsValid(ent) then return false end
+
+    local class = ent:GetClass()
+
+    if class == "func_breakable" or class == "func_physbox" then
+        if ent.GetMaxHealth and ent:GetMaxHealth() > 1 then
+            return true
+        end
+
+        return class == "func_breakable" and SC.IsFragileMapBreakable(ent)
+    end
+
+    if class == "func_breakable_surf" then
+        return true
+    end
+
+    if class == "prop_physics" then
+        if not ent.GetMaxHealth then
+            return false
+        end
+
+        local model = ent:GetModel()
+
+        if SC.IsIgnoredPropModel(model) then
+            return false
+        end
+
+        if SC.IsBoardModel(model) then
+            return SC.IsMapBoardEntity(ent)
+        end
+
+        return true
+    end
+
+    if class == "prop_dynamic" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    if class == "func_physbox" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    return false
+end

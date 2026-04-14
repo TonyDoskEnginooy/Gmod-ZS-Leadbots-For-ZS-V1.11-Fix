@@ -463,14 +463,6 @@ function SC.ShouldPressAttack(bot, controller)
 
             return distanceSqr <= 22500
         end
-
-        if SC.IsSimpleObstacleTarget(bot, target) then
-            if distanceSqr > 10000 then
-                return false
-            end
-
-            return SC.RegisterObstacleSwing(controller, target)
-        end
     end
 
     return false

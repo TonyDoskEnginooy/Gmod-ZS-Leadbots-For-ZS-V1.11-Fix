@@ -240,7 +240,6 @@ function SC.ForgetInvalidTarget(bot, controller)
     local target = controller.Target
 
     if not IsValid(target) then
-        SC.ClearObstacleTargetState(controller)
         return
     end
 
@@ -252,22 +251,7 @@ function SC.ForgetInvalidTarget(bot, controller)
     or not ZSB.Util:CanPerceiveTarget(bot, target) then
         controller.Target = nil
         controller.LookAtTime = 0
-        SC.ClearObstacleTargetState(controller)
         SC.ClearGoal(controller)
         return
-    end
-
-    if not SC.IsSimpleObstacleTarget(bot, target) then
-        SC.ClearObstacleTargetState(controller)
-        return
-    end
-
-    if controller.ActiveObstacleTarget ~= target then
-        SC.BeginObstacleTarget(controller, target)
-        return
-    end
-
-    if controller.ObstacleTargetSince + SC.OBSTACLE_TARGET_TIMEOUT < CurTime() then
-        SC.MarkObstacleTargetTimedOut(controller, target)
     end
 end

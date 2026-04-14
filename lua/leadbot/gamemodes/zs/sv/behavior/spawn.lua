@@ -375,10 +375,6 @@ local function ResetControllerAfterSpawn(bot)
     end
 
     controller:Reset()
-
-    if ZSB and ZSB.StartCommand and ZSB.StartCommand.ClearObstacleTargetState then
-        ZSB.StartCommand.ClearObstacleTargetState(controller)
-    end
 end
 
 function LeadBot.Spawn(bot)

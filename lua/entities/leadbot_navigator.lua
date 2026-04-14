@@ -90,14 +90,6 @@ function ENT:Reset()
     self.ConserveAmmoWithKnife = false
     self.MeleeRetreatUntil = 0
 
-    self.ObstacleSwingCount = 0
-    self.ObstacleSwingLimit = 0
-    self.NextObstacleSwingCount = 0
-    self.ActiveObstacleTarget = nil
-    self.ObstacleTargetSince = 0
-    self.LastObstacleTarget = 0
-    self.ObstacleTargetRetryUntil = 0
-
     self.NextSurvivorBreakAttempt = 0
     self.NextPropThrow = 0
 

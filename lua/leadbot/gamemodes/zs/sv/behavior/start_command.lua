@@ -10,7 +10,6 @@ includeSCModule("pos_goal.lua")
 includeSCModule("shared.lua")
 includeSCModule("survivor_destruction.lua")
 includeSCModule("survivor_weapon.lua")
-includeSCModule("target_obstacle.lua")
 includeSCModule("target.lua")
 includeSCModule("zombie_destruction.lua")
 includeSCModule("zombie_prop_throw.lua")
@@ -45,13 +44,17 @@ function LeadBot.StartCommand(bot, cmd)
     local foundEnts = ZSB.Util:FindEnts(bot)
 
     SC.ToggleMovingBrush(bot, foundEnts.near["func_movelinear"])
+    --SC.BreakBreakableSurface(foundEnts.near["func_breakable_surf"])
 
     if teamId == TEAM_SURVIVORS then
         SC.SetRoamState(bot)
-        SC.AcquireTemperamentTarget(bot, controller, foundEnts)
 
-        if not IsValid(controller.Target) then
-            SC.AcquireSurvivorBreakTarget(bot, controller, foundEnts)
+        if not IsValid(controller.Target) or controller.ForgetTarget < now then
+            if math.random(1, 100) <= 85 then
+                SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+            else
+                SC.AcquireSurvivorBreakTarget(bot, controller, foundEnts)
+            end
         end
 
         if IsValid(controller.Target) then
@@ -67,8 +70,14 @@ function LeadBot.StartCommand(bot, cmd)
     elseif teamId == TEAM_ZOMBIE then
         SC.ApplyZombieCheats(bot)
         SC.BreakRotatingDoor(bot, foundEnts.near["prop_door_rotating"])
-        SC.BreakBreakableSurface(foundEnts.near["func_breakable_surf"])
-        SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+
+        if not IsValid(controller.Target) or controller.ForgetTarget < now  then
+            if math.random(1, 100) <= 60 then
+                SC.AcquireTemperamentTarget(bot, controller, foundEnts)
+            else
+                SC.AcquireZombieBreakTarget(bot, controller, foundEnts)
+            end
+        end
 
         if IsValid(controller.Target) then
             SC.TryThrowNearbyProp(bot, controller, foundEnts)
