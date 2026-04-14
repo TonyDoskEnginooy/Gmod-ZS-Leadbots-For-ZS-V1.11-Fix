@@ -219,9 +219,9 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     end
 
     if strategy == 1 then
-        local campingSpot = GetSurvivorCampingSpot(strategy)
-
         if ZSB.Util:Odds(35) then
+            local campingSpot = GetSurvivorCampingSpot(strategy)
+
             if campingSpot then
                 if bot:GetPos():DistToSqr(campingSpot) <= SURVIVOR_ANCHOR_REACHED_DIST_SQR then
                     return nil
