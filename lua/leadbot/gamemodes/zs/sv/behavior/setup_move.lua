@@ -16,6 +16,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
     if not IsValid(controller) then return end
 
     local strategy = bot:LBGetStrategy()
+    local now = CurTime()
 
     -- Movement base
 
@@ -30,7 +31,7 @@ function LeadBot.SetupMove(bot, cmd, mv)
 
     if IsValid(controller.Target) then
         local distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
-        SM.Retreat(bot, controller, mv, distanceSqr, strategy)
+        SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
     end
 
     -- Apply movement specializations

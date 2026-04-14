@@ -19,8 +19,17 @@ local function IsCombatTarget(bot, target)
 end
 
 local function HasClearShot(bot, controller, target)
+    local now = CurTime()
+
+    if controller.NextHasClearShot < now then
+        controller.NextHasClearShot = now + 0.15
+    else
+        return controller.HasClearShot
+    end
+
     local targetPos = ZSB.Util:GetCombatAimPoint(bot, target)
     if not targetPos then
+        controller.HasClearShot = false
         return false
     end
 
@@ -37,6 +46,7 @@ local function HasClearShot(bot, controller, target)
     end
 
     if distanceSqr > 80 * 80 and bot:GetAimVector():Dot(aimDir) < requiredDot then
+        controller.HasClearShot = false
         return false
     end
 
@@ -47,12 +57,14 @@ local function HasClearShot(bot, controller, target)
     })
 
     if tr.Entity == target then
+        controller.HasClearShot = true
         return true
     end
 
     if target:IsPlayer() then
         local bodyCenter = ZSB.Util:GetTargetBodyCenter(target)
         if not bodyCenter then
+            controller.HasClearShot = false
             return false
         end
 
@@ -62,9 +74,11 @@ local function HasClearShot(bot, controller, target)
             filter = {bot, controller}
         })
 
-        return bodyTrace.Entity == target
+        controller.HasClearShot = bodyTrace.Entity == target
+        return controller.HasClearShot
     end
 
+    controller.HasClearShot = false
     return false
 end
 
@@ -327,7 +341,11 @@ local function GetBlockedAttackTargetPos(ent, fallbackPos)
     return ent:GetPos()
 end
 
-function SC.GetBlockedAttackEntity(bot, controller)
+function SC.GetBlockedAttackEntity(bot, controller, now)
+    if controller.NextBlockedAttackEntity > now then return end
+
+    controller.NextBlockedAttackEntity = now + 0.35
+
     if not IsValid(bot) or not IsValid(controller) then
         return nil, nil
     end

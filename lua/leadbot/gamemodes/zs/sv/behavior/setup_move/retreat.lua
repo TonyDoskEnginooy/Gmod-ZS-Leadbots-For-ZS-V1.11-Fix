@@ -29,8 +29,13 @@ local function ApplyRetreatStrafe(controller, mv, trace)
     end
 end
 
-function SM.Retreat(bot, controller, mv, distanceSqr, strategy)
-    local trace = TraceIgnoringProps(bot:EyePos(), bot:EyePos() + bot:GetAimVector() * 100000, controller, bot)
+function SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
+    if controller.NextRetreatTrace < now then
+        controller.NextRetreatTrace = now + 0.5
+        controller.RetreatTrace = TraceIgnoringProps(bot:EyePos(), bot:EyePos() + bot:GetAimVector() * 100000, controller, bot)
+    end
+
+    local trace = controller.RetreatTrace
 
     if not IsValid(controller.Target) or (not controller.Target:IsPlayer() and not controller.Target:IsNPC()) then
         mv:SetForwardSpeed(1200)

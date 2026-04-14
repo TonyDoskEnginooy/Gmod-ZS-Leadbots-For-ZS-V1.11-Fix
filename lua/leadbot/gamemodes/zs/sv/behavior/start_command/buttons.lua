@@ -4,13 +4,14 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 local SC = ZSB.StartCommand
 
 function SC.BuildActionButtons(bot, controller)
+    local now = CurTime()
     local buttons = IN_SPEED
     local weapon = bot:GetActiveWeapon()
     local target = controller.Target
     local usingLadder = bot:GetMoveType() == MOVETYPE_LADDER
     local distanceSqr = IsValid(target) and bot:GetPos():DistToSqr(target:GetPos()) or math.huge
     local secondaryAttack = SC.ChooseZombieSecondaryAttack(bot, controller, weapon, target, distanceSqr)
-    local blockedAttackEntity, blockedAttackPos = SC.GetBlockedAttackEntity(bot, controller)
+    local blockedAttackEntity, blockedAttackPos = SC.GetBlockedAttackEntity(bot, controller, now)
 
     if IsValid(weapon) then
         local clip1 = weapon:Clip1()
