@@ -142,10 +142,14 @@ function LeadBot.TakeDamage(aggressor, victimBot, hp, dmgInfo)
     and aggressor:IsPlayer()
     and victimBot:Team() == TEAM_ZOMBIE
     and aggressor:Team() == TEAM_SURVIVORS then
-        local force = dmgInfo:GetDamageForce()
+        local force = dmgInfo:GetDamageForce() / 10
+
+        if force:LengthSqr() > (220 * 220) then
+            force = force:GetNormalized() * 220
+        end
 
         ZSB.playerCSSpeed = 1
-        victimBot:SetVelocity(victimBot:GetVelocity() + (force / 4))
+        victimBot:SetVelocity(victimBot:GetVelocity() + force)
     end
 
     if hp <= damage then
