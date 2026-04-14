@@ -132,9 +132,9 @@ function SC.TryThrowNearbyProp(bot, controller, foundEnts)
     phys:Wake()
     phys:ApplyForceCenter(throwVector * math.max(phys:GetMass(), 10) * 900)
 
-    controller.NextDuck = CurTime() + 0.2
+    controller.NextDuck = CurTime() + 0.3
     controller.LookAt = (controller.Target:WorldSpaceCenter() - bot:GetShootPos()):Angle()
-    controller.LookAtTime = CurTime() + 0.2
+    controller.LookAtTime = CurTime() + 0.3
 
     return true
 end
