@@ -198,7 +198,7 @@ end
 function SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
     if controller.NextAcquireTemperamentTarget > now then return end
 
-    controller.NextAcquireTemperamentTarget = now + 1.5
+    controller.NextAcquireTemperamentTarget = now + 1
     local botTeam = bot:Team()
     local temperament = ZSB.Util.GetTemperament(bot)
     local recentThreat = SC.GetRecentCloseThreat(controller)
