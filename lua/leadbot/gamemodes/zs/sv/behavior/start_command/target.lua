@@ -281,11 +281,11 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts)
     }
 
     ConsiderBestTarget(bot, controller, state, foundEnts.facing["player"], "facing_player", ScoreTarget)
-    ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreTarget)
     ConsiderBestTarget(bot, controller, state, foundEnts.near["NPCs"], "near_npc", ScoreTarget)
 
-    if IsValid(state.bestTarget) then
-        ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreTarget)
+    if IsValid(state.bestTarget) and bot:Team() == TEAM_ZOMBIE then
+        --ConsiderBestTarget(bot, controller, state, foundEnts.near["player"], "near_player", ScoreTarget)
+        --ConsiderBestTarget(bot, controller, state, foundEnts.area["player"], "area_player", ScoreTarget)
         ConsiderBestTarget(bot, controller, state, foundEnts.area["NPCs"], "area_npc", ScoreTarget)
     end
 
