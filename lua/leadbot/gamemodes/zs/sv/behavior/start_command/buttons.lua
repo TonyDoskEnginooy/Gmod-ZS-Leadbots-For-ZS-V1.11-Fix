@@ -31,7 +31,7 @@ function SC.BuildActionButtons(bot, controller)
     elseif SC.ShouldPressAttack(bot, controller) then
         buttons = bit.bor(buttons, IN_ATTACK)
 
-        if SC.IsActiveSurvivorMelee(bot) then
+        if ZSB.Util.IsActiveSurvivorMelee(bot) then
             -- Create a short hit-and-run window after a melee swing.
             controller.LastMeleeAttackTime = CurTime()
             controller.MeleeRetreatUntil = CurTime() + 0.55
@@ -43,7 +43,7 @@ function SC.BuildActionButtons(bot, controller)
         controller.LookAt = (blockedAttackPos - bot:GetShootPos()):Angle()
         controller.LookAtTime = CurTime() + 0.2
 
-        if SC.IsActiveSurvivorMelee(bot) then
+        if ZSB.Util.IsActiveSurvivorMelee(bot) then
             controller.LastMeleeAttackTime = CurTime()
             controller.MeleeRetreatUntil = CurTime() + 0.4
         end

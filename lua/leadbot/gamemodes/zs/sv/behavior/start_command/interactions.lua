@@ -8,7 +8,7 @@ local RANDOM_JUMP_MAX = 2
 local BOT_DUCK_DELAY = 0.25
 
 function SC.BreakRotatingDoor(bot, doors)
-    if not SC.HasEntries(doors) then return end
+    if not ZSB.Util.HasEntries(doors) then return end
 
     local door = doors[math.random(1, #doors)]
     if IsValid(door) and door:GetClass() == "prop_door_rotating" then
@@ -17,7 +17,7 @@ function SC.BreakRotatingDoor(bot, doors)
 end
 
 function SC.ToggleMovingBrush(bot, movingBrushes)
-    if not SC.HasEntries(movingBrushes) then return end
+    if not ZSB.Util.HasEntries(movingBrushes) then return end
 
     local movingBrush = movingBrushes[math.random(1, #movingBrushes)]
     if not IsValid(movingBrush) then return end
@@ -30,7 +30,7 @@ function SC.ToggleMovingBrush(bot, movingBrushes)
 end
 
 function SC.BreakBreakableSurface(surfaces)
-    if not SC.HasEntries(surfaces) then return end
+    if not ZSB.Util.HasEntries(surfaces) then return end
 
     local surface = surfaces[math.random(1, #surfaces)]
     if IsValid(surface) then

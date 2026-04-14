@@ -84,7 +84,7 @@ function SC.IsSurvivorBreakTarget(bot, target)
     end
 
     if className == "prop_physics" then
-        return HasMapOwnership(target) and (HasHealthyBreakableState(target) or SC.IsMapBoardEntity(target))
+        return HasMapOwnership(target) and (HasHealthyBreakableState(target) or ZSB.Util.IsMapBoardEntity(target))
     end
 
     return false
@@ -164,13 +164,13 @@ local function ScoreSurvivorBreakTarget(bot, controller, target, sourceTag)
         score = score + 90
     end
 
-    score = score + SC.StableNoise(bot, target, 35)
+    score = score + ZSB.Util.StableNoise(bot, target, 35)
 
     return score
 end
 
 local function ConsiderSurvivorBreakBucket(bot, controller, state, bucket, sourceTag)
-    if not SC.HasEntries(bucket) then return end
+    if not ZSB.Util.HasEntries(bucket) then return end
 
     for _, ent in ipairs(bucket) do
         if IsValid(ent) then

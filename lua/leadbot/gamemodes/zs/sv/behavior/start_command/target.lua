@@ -56,7 +56,7 @@ local function AddCandidate(candidateSources, ent, sourceType)
 end
 
 local function AddCandidateBonus(candidateSources, list, sourceType)
-    if not SC.HasEntries(list) then
+    if not ZSB.Util.HasEntries(list) then
         return
     end
 
@@ -66,7 +66,7 @@ local function AddCandidateBonus(candidateSources, list, sourceType)
 end
 
 local function ScoreTargetFast(ctx, target, sourceType)
-    if not SC.IsEnemyCandidate(ctx.bot, target) then
+    if not ZSB.Util.IsEnemyCandidate(ctx.bot, target) then
         return nil
     end
 
@@ -95,13 +95,13 @@ local function ScoreTargetFast(ctx, target, sourceType)
         score = score + 900
     end
 
-    score = score + SC.GetDistanceScore(distanceSqr)
+    score = score + ZSB.Util.GetDistanceScore(distanceSqr)
 
     if isCurrentTarget then
         score = score + ctx.holdBonus
     end
 
-    score = score + SC.StableNoise(ctx.bot, target, ctx.imperfection)
+    score = score + ZSB.Util.StableNoise(ctx.bot, target, ctx.imperfection)
 
     return score
 end
@@ -124,11 +124,11 @@ function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
 
     local nearPlayers = foundEnts and foundEnts.near and foundEnts.near["player"] or nil
 
-    if SC.HasEntries(nearPlayers) then
+    if ZSB.Util.HasEntries(nearPlayers) then
         for i = 1, #nearPlayers do
             local target = nearPlayers[i]
 
-            if SC.IsValidEnemyZombie(bot, target) then
+            if ZSB.Util.IsValidEnemyZombie(bot, target) then
                 return true
             end
         end
@@ -136,13 +136,13 @@ function SC.HasImmediateZombieThreat(bot, controller, foundEnts)
 
     local facingPlayers = foundEnts and foundEnts.facing and foundEnts.facing["player"] or nil
 
-    if SC.HasEntries(facingPlayers) then
+    if ZSB.Util.HasEntries(facingPlayers) then
         local botPos = bot:GetPos()
 
         for i = 1, #facingPlayers do
             local target = facingPlayers[i]
 
-            if SC.IsValidEnemyZombie(bot, target)
+            if ZSB.Util.IsValidEnemyZombie(bot, target)
                 and botPos:DistToSqr(target:GetPos()) <= SURVIVOR_BREAK_IMMEDIATE_THREAT_DISTANCE_SQR
             then
                 return true
@@ -200,7 +200,7 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
 
     controller.NextAcquireTemperamentTarget = now + 1.5
     local botTeam = bot:Team()
-    local temperament = SC.GetTemperament(bot)
+    local temperament = ZSB.Util.GetTemperament(bot)
     local recentThreat = SC.GetRecentCloseThreat(controller)
 
     local ctx = {

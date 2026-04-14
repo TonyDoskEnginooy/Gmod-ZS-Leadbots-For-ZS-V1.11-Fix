@@ -1,11 +1,15 @@
-function ZSB.Util:Odds(probability)
+ZSB = ZSB or {}
+
+local UT = ZSB.Util
+
+function UT:Odds(probability)
     probability = math.Clamp(probability or 0, 0, 100)
     return math.random(1, 100) <= probability
 end
 
 -- ----------------------------------------------
 
-function ZSB.Util.GetPos(target, referencePos)
+function UT.GetPos(target, referencePos)
     if not IsValid(target) then
         return nil
     end
@@ -90,11 +94,11 @@ local function IsTorsoZombie(target)
     return string.find(string.lower(zombieClassName), "torso", 1, true) ~= nil
 end
 
-function ZSB.Util:GetZombieClassName(bot)
+function UT:GetZombieClassName(bot)
     return GetZombieClassName(bot)
 end
 
-function ZSB.Util:IsWraithInvisibleToSurvivor(botZombie)
+function UT:IsWraithInvisibleToSurvivor(botZombie)
     if GetZombieClassName(botZombie) ~= "Wraith" then
         return false
     end
@@ -105,11 +109,11 @@ function ZSB.Util:IsWraithInvisibleToSurvivor(botZombie)
     return alpha <= WRAITH_INVISIBLE_ALPHA_THRESHOLD
 end
 
-function ZSB.Util:CanPerceiveTarget(botZombie)
+function UT:CanPerceiveTarget(botZombie)
     return not self:IsWraithInvisibleToSurvivor(botZombie)
 end
 
-function ZSB.Util:IsFacingEnt(ent1, ent2)
+function UT:IsFacingEnt(ent1, ent2)
     if not IsValid(ent1) or not IsValid(ent2) then
         return false
     end
@@ -147,11 +151,11 @@ local function GetTargetBodyCenter(target)
     return target:LocalToWorld(target:OBBCenter())
 end
 
-function ZSB.Util:GetTargetBodyCenter(target)
+function UT:GetTargetBodyCenter(target)
     return GetTargetBodyCenter(target)
 end
 
-function ZSB.Util:GetCombatAimPoint(attacker, target)
+function UT:GetCombatAimPoint(attacker, target)
     if not IsValid(attacker) or not IsValid(target) then
         return nil
     end
@@ -284,7 +288,7 @@ local function CreateFoundEntsTable(bot)
     return foundEnts[bot]
 end
 
-function ZSB.Util:FindEnts(bot)
+function UT:FindEnts(bot)
     if not IsValid(bot) then
         return nil
     end
@@ -365,4 +369,169 @@ function ZSB.Util:FindEnts(bot)
     }
 
     return foundEnts
+end
+
+-- ----------------------------------------------
+
+local FALLBACK_TEMPERAMENT = {
+    name = "rusher",
+    holdBonus = 220,
+    imperfection = 30,
+    preferWeak = 1.0,
+    obstacleBias = 0
+}
+
+function UT.HasEntries(list)
+    return istable(list) and #list > 0
+end
+
+function UT.GetTemperament(bot)
+    return bot.LBConfig.temperament or FALLBACK_TEMPERAMENT
+end
+
+function UT.StableNoise(bot, ent, magnitude)
+    local bucket = math.floor(CurTime() * 1.5)
+    local seed = (bot.LBConfig.personalitySeed or 1) * 0.013 + ent:EntIndex() * 0.173 + bucket * 0.071
+    return math.sin(seed * 23.417) * magnitude
+end
+
+function UT.GetDistanceScore(distanceSqr)
+    if distanceSqr <= 2500 then
+        return 260
+    elseif distanceSqr <= 22500 then
+        return 180
+    elseif distanceSqr <= 90000 then
+        return 100
+    elseif distanceSqr <= 250000 then
+        return 20
+    end
+
+    return -80
+end
+
+function UT.IsValidEnemyZombie(bot, target, allowGod)
+    return IsValid(bot)
+        and IsValid(target)
+        and bot:Team() == TEAM_SURVIVORS
+        and target:Team() == TEAM_ZOMBIE
+        and target:IsPlayer()
+        and target:Alive()
+        and (not target:HasGodMode() or allowGod and target:HasGodMode())
+        and UT:CanPerceiveTarget(bot, target)
+end
+
+function UT.IsEnemyCandidate(bot, ent)
+    if not IsValid(ent) or ent == bot then
+        return false
+    end
+
+    if ent:IsPlayer() then
+        return ent:Alive()
+            and ent:Team() ~= bot:Team()
+            and not ent:HasGodMode()
+            and UT:CanPerceiveTarget(bot, ent)
+    end
+
+    return ent:IsNPC()
+end
+
+function UT.IsIgnoredPropModel(model)
+    return model == "models/props_c17/playground_carousel01.mdl"
+        or model == "models/props_wasteland/prison_lamp001a.mdl"
+end
+
+function UT.IsBoardModel(model)
+    return model == "models/props_debris/wood_board04a.mdl"
+        or model == "models/props_debris/wood_board05a.mdl"
+        or model == "models/props_debris/wood_board06a.mdl"
+end
+
+function UT.IsMapBoardEntity(ent)
+    return IsValid(ent)
+        and ent:GetClass() == "prop_physics"
+        and UT.IsBoardModel(ent:GetModel())
+        and ent.CreatedByMap
+        and ent:CreatedByMap()
+end
+
+function UT.IsActiveSurvivorMelee(bot)
+    if bot:Team() ~= TEAM_SURVIVORS then
+        return false
+    end
+
+    local weapon = bot:GetActiveWeapon()
+    if not IsValid(weapon) then
+        return false
+    end
+
+    local className = string.lower(weapon:GetClass() or "")
+
+    return className == "weapon_zs_swissarmyknife"
+        or className:find("knife", 1, true)
+        or className:find("crowbar", 1, true)
+        or className:find("fists", 1, true)
+        or className:find("machete", 1, true)
+        or className:find("melee", 1, true)
+end
+
+function UT.IsFragileMapBreakable(ent)
+    if not IsValid(ent) or ent:GetClass() ~= "func_breakable" then
+        return false
+    end
+
+    if not ZSB.Map:GetValue("zombieBreakCheck") then
+        return false
+    end
+
+    if not ent.GetMaxHealth then
+        return true
+    end
+
+    return ent:GetMaxHealth() <= 500
+end
+
+function UT.IsSimpleObstacleTarget(_, ent)
+    if not IsValid(ent) then return false end
+
+    local class = ent:GetClass()
+
+    if class == "func_breakable" or class == "func_physbox" then
+        if ent.GetMaxHealth and ent:GetMaxHealth() > 1 then
+            return true
+        end
+
+        return class == "func_breakable" and UT.IsFragileMapBreakable(ent)
+    end
+
+    if class == "func_breakable_surf" then
+        return true
+    end
+
+    if class == "prop_physics" then
+        if not ent.GetMaxHealth then
+            return false
+        end
+
+        local model = ent:GetModel()
+
+        if UT.IsIgnoredPropModel(model) then
+            return false
+        end
+
+        if UT.IsBoardModel(model) then
+            return UT.IsMapBoardEntity(ent)
+        end
+
+        return true
+    end
+
+    if class == "prop_dynamic" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    if class == "func_physbox" then
+        return ent.GetMaxHealth and ent:GetMaxHealth() > 1
+    end
+
+    return false
 end

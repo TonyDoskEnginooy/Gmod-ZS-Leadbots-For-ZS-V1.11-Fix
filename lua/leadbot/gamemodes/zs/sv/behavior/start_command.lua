@@ -1,3 +1,5 @@
+local leadbot_zcheats = GetConVar("leadbot_zcheats")
+
 local function includeSCModule(fileName)
     include("start_command/" .. fileName)
 end
@@ -17,6 +19,20 @@ ZSB = ZSB or {}
 ZSB.StartCommand = ZSB.StartCommand or {}
 
 local SC = ZSB.StartCommand
+
+local function ApplyZombieCheats(bot)
+    if bot:Team() ~= TEAM_ZOMBIE or not leadbot_zcheats:GetBool() then return end
+
+    local zombieClass = bot:GetZombieClass()
+
+    if zombieClass == 8 then
+        bot:Freeze(false)
+    end
+
+    if (zombieClass == 3 or zombieClass == 5) and ZombieClasses and ZombieClasses[zombieClass] then
+        GAMEMODE:SetPlayerSpeed(bot, ZombieClasses[zombieClass].Speed)
+    end
+end
 
 function LeadBot.StartCommand(bot, cmd)
     local controller = bot:GetController()
@@ -67,7 +83,7 @@ function LeadBot.StartCommand(bot, cmd)
             SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
         end
     elseif teamId == TEAM_ZOMBIE then
-        SC.ApplyZombieCheats(bot)
+        ApplyZombieCheats(bot)
         SC.BreakRotatingDoor(bot, foundEnts.near["prop_door_rotating"])
 
         if not IsValid(controller.Target) or controller.ForgetTarget < now  then

@@ -8,13 +8,13 @@ local function ScoreZombieObstacleTarget(bot, controller, target)
         return false
     end
 
-    if not SC.IsSimpleObstacleTarget(bot, target) then
+    if not ZSB.Util.IsSimpleObstacleTarget(bot, target) then
         return nil
     end
 
-    local temperament = SC.GetTemperament(bot)
+    local temperament = ZSB.Util.GetTemperament(bot)
     local distanceSqr = bot:GetPos():DistToSqr(target:GetPos())
-    local score = 140 + temperament.obstacleBias + SC.GetDistanceScore(distanceSqr)
+    local score = 140 + temperament.obstacleBias + ZSB.Util.GetDistanceScore(distanceSqr)
 
     if target == controller.Target then
         score = score + math.floor(temperament.holdBonus * 0.4)
@@ -24,13 +24,13 @@ local function ScoreZombieObstacleTarget(bot, controller, target)
         score = score - 450
     end
 
-    score = score + SC.StableNoise(bot, target, math.floor(temperament.imperfection * 0.4))
+    score = score + ZSB.Util.StableNoise(bot, target, math.floor(temperament.imperfection * 0.4))
 
     return score
 end
 
 local function ConsiderBestTarget(bot, controller, state, list, sourceTag, scorer)
-    if not SC.HasEntries(list) then return end
+    if not ZSB.Util.HasEntries(list) then return end
 
     for _, ent in ipairs(list) do
         if IsValid(ent) then

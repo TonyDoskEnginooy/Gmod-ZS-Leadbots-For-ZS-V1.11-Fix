@@ -29,8 +29,8 @@ end
 
 local function MarkRecentSurvivorThreat(victimBot, controller, aggressor)
     if type(SC) ~= "table" then return end
-    if not isfunction(SC.IsValidEnemyZombie) or not isfunction(SC.SetRecentCloseThreat) then return end
-    if not SC.IsValidEnemyZombie(victimBot, aggressor) then return end
+    if not isfunction(ZSB.Util.IsValidEnemyZombie) or not isfunction(SC.SetRecentCloseThreat) then return end
+    if not ZSB.Util.IsValidEnemyZombie(victimBot, aggressor) then return end
     if victimBot:GetPos():DistToSqr(aggressor:GetPos()) > CLOSE_THREAT_DISTANCE_SQR then return end
 
     SC.SetRecentCloseThreat(controller, aggressor, CLOSE_THREAT_STICK_TIME)

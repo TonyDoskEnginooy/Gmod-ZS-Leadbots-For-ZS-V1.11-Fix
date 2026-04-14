@@ -89,7 +89,7 @@ local function IsZombieExplorationEnt(bot, ent)
 
     local className = ent:GetClass()
 
-    if SC.IsSimpleObstacleTarget(bot, ent) then
+    if ZSB.Util.IsSimpleObstacleTarget(bot, ent) then
         return true
     end
 

@@ -77,10 +77,11 @@ function ENT:Reset()
     self.LookAt = angle_zero
     self.LookAtTime = 0
     self.NextPathRecompute = 0
-    self.NextRetreatTrace = 0
+    self.NextRetreatScans = 0
     self.NextHasClearShot = 0
     self.HasClearShot = false
     self.NextBlockedAttackEntity = 0
+    self.RetreatGodModeThread = false
 
     self.NextStrafe = 0
     self.NextJump = -1

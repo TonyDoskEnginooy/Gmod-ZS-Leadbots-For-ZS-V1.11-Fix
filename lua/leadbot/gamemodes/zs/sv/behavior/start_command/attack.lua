@@ -355,7 +355,7 @@ function SC.GetBlockedAttackEntity(bot, controller, now)
     end
 
     -- Only use this fallback for zombies or melee survivors.
-    if bot:Team() ~= TEAM_ZOMBIE and not SC.IsActiveSurvivorMelee(bot) then
+    if bot:Team() ~= TEAM_ZOMBIE and not ZSB.Util.IsActiveSurvivorMelee(bot) then
         return nil, nil
     end
 
@@ -455,7 +455,7 @@ function SC.ShouldPressAttack(bot, controller)
             return false
         end
 
-        if SC.IsActiveSurvivorMelee(bot) then
+        if ZSB.Util.IsActiveSurvivorMelee(bot) then
             if IsMeleeRetreatActive(controller) then
                 return false
             end

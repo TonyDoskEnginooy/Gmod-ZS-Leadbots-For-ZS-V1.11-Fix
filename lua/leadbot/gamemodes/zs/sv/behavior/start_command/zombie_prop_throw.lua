@@ -52,7 +52,7 @@ local function IsThrowableProp(ent)
     end
 
     local model = ent:GetModel()
-    if SC.IsIgnoredPropModel(model) or SC.IsBoardModel(model) then
+    if ZSB.Util.IsIgnoredPropModel(model) or ZSB.Util.IsBoardModel(model) then
         return false
     end
 
@@ -69,7 +69,7 @@ local function IsThrowableProp(ent)
 end
 
 local function SelectThrowableProp(bot, target, props)
-    if not SC.HasEntries(props) then return nil end
+    if not ZSB.Util.HasEntries(props) then return nil end
 
     local bestProp
     local bestScore = -math.huge
