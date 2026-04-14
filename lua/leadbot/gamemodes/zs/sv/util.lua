@@ -54,31 +54,19 @@ function ZSB.Util:GetZombieClassName(bot)
     return GetZombieClassName(bot)
 end
 
-function ZSB.Util:IsWraithInvisibleToSurvivor(bot, target)
-    if not IsValid(bot) or not IsValid(target) then
+function ZSB.Util:IsWraithInvisibleToSurvivor(botZombie)
+    if GetZombieClassName(botZombie) ~= "Wraith" then
         return false
     end
 
-    if bot:Team() ~= TEAM_SURVIVORS or not target:IsPlayer() or target:Team() ~= TEAM_ZOMBIE then
-        return false
-    end
-
-    if GetZombieClassName(target) ~= "Wraith" then
-        return false
-    end
-
-    local color = target:GetColor()
+    local color = botZombie:GetColor()
     local alpha = color and color.a or 255
 
     return alpha <= WRAITH_INVISIBLE_ALPHA_THRESHOLD
 end
 
-function ZSB.Util:CanPerceiveTarget(bot, target)
-    if not IsValid(bot) or not IsValid(target) then
-        return false
-    end
-
-    return not self:IsWraithInvisibleToSurvivor(bot, target)
+function ZSB.Util:CanPerceiveTarget(botZombie)
+    return not self:IsWraithInvisibleToSurvivor(botZombie)
 end
 
 function ZSB.Util:IsFacingEnt(ent1, ent2)
@@ -158,15 +146,15 @@ function ZSB.Util:GetCombatAimPoint(attacker, target)
         end
 
         local shootSkill = math.max(attacker:LBGetshootSkill(), 1)
-        local normalizedSkill = math.Clamp((shootSkill - 1) / 7, 0, 1)
-        local jitterRadius = 10 - normalizedSkill * 4
+        local normalizedSkill = math.Clamp((shootSkill) / 7, 0, 1)
+        local jitterRadius = 12 - normalizedSkill * 4
 
-        if distanceSqr > 240 * 240 then
-            jitterRadius = jitterRadius * 1.35
+        if distanceSqr < 260 * 260 then
+            jitterRadius = jitterRadius * (1.35 - normalizedSkill)
         end
 
         local jitter = VectorRand() * jitterRadius
-        jitter.z = jitter.z * 0.35
+        jitter.z = jitter.z * 0.4 + normalizedSkill
         aimPoint = aimPoint + jitter
     else
         aimPoint = target:EyePos()
@@ -192,12 +180,15 @@ local wantedCmdClasses = {
 }
 local wantedCmdClassesSeq = table.GetKeys(wantedCmdClasses)
 
-local BOT_SCAN_RANGE = Vector(1200, 1200, 1200)
+local MAX_SCAN_RANGE = 1200
+local BOT_SCAN_RANGE = Vector(MAX_SCAN_RANGE, MAX_SCAN_RANGE, MAX_SCAN_RANGE)
 local BOT_SCAN_DELAY = 0.5
 local BOT_SCAN_JITTER_MIN = -0.1
 local BOT_SCAN_JITTER_MAX = 0.1
-local NEAR_DISTANCE = 110
+local NEAR_DISTANCE = 250
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
+local FACING_DISTANCE = MAX_SCAN_RANGE
+local FACING_DISTANCE_SQR = FACING_DISTANCE * FACING_DISTANCE
 local FACING_DOT_THRESHOLD = 0.72
 
 local entsFindInBox = ents.FindInBox
@@ -306,7 +297,9 @@ function ZSB.Util:FindEnts(bot)
 
         if distSqr < NEAR_DISTANCE_SQR then
             nearBucket[#nearBucket + 1] = ent
+        end
 
+        if distSqr < FACING_DISTANCE_SQR then
             local eyeDelta = entPos - botEyePos
             local eyeDistSqr = eyeDelta:LengthSqr()
 

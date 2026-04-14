@@ -100,6 +100,9 @@ function ENT:Reset()
     self.NextPropThrow = 0
 
     self.NextPoisonZombieThrow = 0
+
+    self.NextAimPoint = 0
+    self.AimPoint = Vector(0, 0, 0)
 end
 
 function ENT:CreatePath()

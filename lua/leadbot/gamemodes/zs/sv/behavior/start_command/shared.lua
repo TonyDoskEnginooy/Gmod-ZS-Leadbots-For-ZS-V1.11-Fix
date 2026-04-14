@@ -68,11 +68,11 @@ end
 
 function SC.IsValidEnemyZombie(bot, target)
     return IsValid(bot)
-        and bot:Team() == TEAM_SURVIVORS
         and IsValid(target)
+        and bot:Team() == TEAM_SURVIVORS
+        and target:Team() == TEAM_ZOMBIE
         and target:IsPlayer()
         and target:Alive()
-        and target:Team() == TEAM_ZOMBIE
         and not target:HasGodMode()
         and ZSB.Util:CanPerceiveTarget(bot, target)
 end
