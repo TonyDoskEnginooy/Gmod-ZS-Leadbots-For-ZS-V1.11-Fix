@@ -41,14 +41,14 @@ local function OnSurvivorBotHurt(aggressor, victimBot)
     if not controller then return end
 
     if (aggressor:IsNPC() or AreDifferentTeams(victimBot, aggressor))
-    and not (aggressor:IsPlayer() and aggressor:HasGodMode())
-    and ZSB.Util:CanPerceiveTarget(victimBot, aggressor) then
-        controller.Target = aggressor
-        controller.ForgetTarget = CurTime() + 4
+        and not (aggressor:IsPlayer() and aggressor:HasGodMode())
+        and ZSB.Util:CanPerceiveTarget(victimBot, aggressor)
+    then
         controller.PosGen = aggressor:GetPos()
-        controller.LastSegmented = CurTime() + 0.1
+        controller.Target8 = aggressor
+        controller.ForgetTarget = CurTime() + 1.8
         controller.LookAt = (aggressor:WorldSpaceCenter() - victimBot:GetShootPos()):Angle()
-        controller.LookAtTime = CurTime() + 0.2
+        controller.LookAtTime = CurTime() + 1.4
 
         MarkRecentSurvivorThreat(victimBot, controller, aggressor)
     end
@@ -67,8 +67,8 @@ local function OnZombieBotHurt(aggressor, victimBot)
 
         if hurtDistance < pathDistance then
             controller.PosGen = aggressorPos
-            controller.LastSegmented = CurTime() + 5
-            controller.LookAtTime = CurTime() + 2
+            controller.LookAt = (aggressor:WorldSpaceCenter() - victimBot:GetShootPos()):Angle()
+            controller.LookAtTime = CurTime() + 1.4
 
             if not aggressor:IsFrozen() then
                 controller.LookAt = (aggressorPos - victimPos):Angle()

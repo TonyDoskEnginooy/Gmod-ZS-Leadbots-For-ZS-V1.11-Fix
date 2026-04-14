@@ -4,8 +4,6 @@ ZSB.StartCommand = ZSB.StartCommand or {}
 local SC = ZSB.StartCommand
 
 local LARGE_RANDOM_SPOT_OPTIONS = { radius = 1000000 }
-local ZOMBIE_WANDER_REEVALUATE_MIN = 5.5
-local ZOMBIE_WANDER_REEVALUATE_MAX = 8.5
 
 local SURVIVOR_ANCHOR_REACHED_DIST_SQR = 2500
 local FREE_ROAM_RANDOM_MIN = 2.4
@@ -102,10 +100,6 @@ local function IsZombieExplorationEnt(bot, ent)
     return className == "prop_door_rotating" or className == "func_movelinear"
 end
 
-local function GetZombieWanderTimeout(now)
-    return (now or CurTime()) + math.Rand(ZOMBIE_WANDER_REEVALUATE_MIN, ZOMBIE_WANDER_REEVALUATE_MAX)
-end
-
 local function TrySetZombieExplorationGoal(bot, controller)
     local foundEnts = ZSB.Util:FindEnts(bot)
     if not foundEnts then
@@ -126,7 +120,8 @@ local function TrySetZombieExplorationGoal(bot, controller)
 
                             if isvector(targetPos) then
                                 controller.PosGen = targetPos
-                                controller.LastSegmented = CurTime() + 6
+                                controller.ForgetTarget = CurTime() + 1
+    print(ent)
                                 return true
                             end
                         end
@@ -152,7 +147,6 @@ local function SetTimedGoal(controller, pos, minDelay, maxDelay, now)
     end
 
     controller.PosGen = pos
-    controller.LastSegmented = (now or CurTime()) + math.Rand(minDelay, maxDelay)
     return true
 end
 
@@ -237,10 +231,8 @@ local function MoveSurvivorToSigil(bot, controller, strategy)
 
             if distance <= SURVIVOR_ANCHOR_REACHED_DIST_SQR then
                 controller.PosGen = nil
-                controller.LastSegmented = now + 1
             else
                 controller.PosGen = campingSpot
-                controller.LastSegmented = now + 1
             end
 
             return
@@ -248,7 +240,6 @@ local function MoveSurvivorToSigil(bot, controller, strategy)
 
         local fallbackPos, fallbackSegmentTime = GetSurvivorFallbackPos(bot, controller, strategy, now)
         controller.PosGen = fallbackPos
-        controller.LastSegmented = fallbackSegmentTime
         return
     end
 end
@@ -263,7 +254,6 @@ local function MoveZombieToSurvivor(bot, controller, now)
         and not candidate:HasGodMode()
         then
             controller.PosGen = candidate:GetPos()
-            controller.LastSegmented = GetZombieWanderTimeout(now)
             break
         end
     end
@@ -271,7 +261,6 @@ end
 
 local function MoveZombieToRandomSpot(controller, now)
     controller.PosGen = controller:FindSpot("random", LARGE_RANDOM_SPOT_OPTIONS)
-    controller.LastSegmented = GetZombieWanderTimeout(now)
 end
 
 function SC.MoveWithoutTarget(bot, controller, strategy)

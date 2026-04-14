@@ -71,7 +71,6 @@ function ENT:Reset()
     self.Target = nil
     self.ForgetTarget = 0
     self.TPos = nil
-    self.LastSegmented = 0
     self.CurSegmentIndex = 2
     self.LookAt = angle_zero
     self.LookAtTime = 0

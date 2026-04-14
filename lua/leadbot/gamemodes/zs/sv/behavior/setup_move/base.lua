@@ -63,7 +63,7 @@ end
 function SM.ClearCompletedGoal(controller)
     controller.PosGen = nil
     controller.TPos = nil
-    controller.LastSegmented = 0
+    controller.ForgetTarget = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin
     controller.NextStrafe = 0

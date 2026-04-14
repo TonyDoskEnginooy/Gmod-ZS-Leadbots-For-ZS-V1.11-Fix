@@ -10,13 +10,11 @@ function SC.UpdateGoalFromTarget(bot, controller)
         or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
     then
         controller.PosGen = controller.Target:GetPos()
-        controller.LastSegmented = CurTime() + 0.1
         return
     end
 
     if bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
         controller.PosGen = SC.GetSurvivorBreakTargetPos(controller.Target, bot:GetPos()) or controller.Target:GetPos()
-        controller.LastSegmented = CurTime() + 0.1
     end
 end
 
@@ -27,8 +25,13 @@ function SC.ClearGoal(controller)
 
     controller.PosGen = nil
     controller.TPos = nil
-    controller.LastSegmented = 0
+    controller.ForgetTarget = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin
     controller.NextStrafe = 0
+    controller.NextJump = -1
+    controller.NextRandomJump = 0
+    controller.NextDuck = 0
+    controller.NextDuckCheck = 0
+    controller.StrafeAngle = 0
 end

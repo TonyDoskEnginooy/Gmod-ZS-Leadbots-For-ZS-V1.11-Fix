@@ -61,7 +61,7 @@ function LeadBot.StartCommand(bot, cmd)
 
             SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts)
             SC.UpdateGoalFromTarget(bot, controller)
-        elseif not controller.PosGen or controller.LastSegmented < now then
+        elseif not controller.PosGen or controller.ForgetTarget < now then
             SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
         end
     elseif teamId == TEAM_ZOMBIE then
@@ -73,7 +73,7 @@ function LeadBot.StartCommand(bot, cmd)
         if IsValid(controller.Target) then
             SC.TryThrowNearbyProp(bot, controller, foundEnts)
             SC.UpdateGoalFromTarget(bot, controller)
-        elseif not controller.PosGen or controller.LastSegmented < now then
+        elseif not controller.PosGen or controller.ForgetTarget < now then
             SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
         end
     end

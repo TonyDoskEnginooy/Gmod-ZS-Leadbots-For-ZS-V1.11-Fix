@@ -31,7 +31,6 @@ timer.Create("zombieNearDetector", 20, 0, function()
 
         if bestPos ~= controller.PosGen then
             controller.PosGen = bestPos
-            controller.LastSegmented = CurTime() + 4000000
         end
     end
 end)
@@ -176,7 +175,7 @@ end
 local function ResetBotPath(controller)
     controller.Target = nil
     controller.PosGen = nil
-    controller.LastSegmented = 0
+    controller.ForgetTarget = 0
     controller.NextStrafe = 0
     controller.NextJump = 0
 end
