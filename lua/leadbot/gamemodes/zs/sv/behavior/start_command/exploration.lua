@@ -96,7 +96,7 @@ local function IsZombieExplorationEnt(bot, ent)
     return className == "prop_door_rotating" or className == "func_movelinear"
 end
 
-local function GetRandomRoamPos(controller)
+function SC.GetRandomRoamPos(controller)
     return controller:FindSpot("random", { radius = 5000 })
 end
 
@@ -107,7 +107,7 @@ local function TrySetZombieExplorationGoal(bot, controller)
     end
 
     if math.random(1, 100) <= 60 then
-        controller.PosGen = GetRandomRoamPos(controller)
+        controller.PosGen = SC.GetRandomRoamPos(controller)
         return true
     else
         for _, scopeName in ipairs({ "facing", "area" }) do
@@ -202,7 +202,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
             return pressurePos
         end
 
-        return GetRandomRoamPos(controller)
+        return SC.GetRandomRoamPos(controller)
     end
 
     -- Anchored survivor strategies.
@@ -244,7 +244,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
                 return survivorPos
             end
         else
-            return GetRandomRoamPos(controller)
+            return SC.GetRandomRoamPos(controller)
         end
     elseif strategy == 3 then
         local zombiePos = GetDistributedZombiePressurePos(bot, now)
@@ -255,7 +255,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     end
 
     -- Fallback
-    return GetRandomRoamPos(controller)
+    return SC.GetRandomRoamPos(controller)
 end
 
 local function MoveSurvivorToSigil(bot, controller, strategy)
