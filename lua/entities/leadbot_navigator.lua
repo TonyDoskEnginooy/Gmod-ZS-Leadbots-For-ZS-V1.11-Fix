@@ -126,7 +126,7 @@ function ENT:ComputePath()
     end
 
     if self.PosGen ~= self.LastPosGen then
-        self.ForgetPosGen = now + 10
+        self.ForgetPosGen = now + 2
         self.LastPosGen = self.PosGen
     elseif self.ForgetPosGen ~= 0 and self.ForgetPosGen < now then
         self.PosGen = nil

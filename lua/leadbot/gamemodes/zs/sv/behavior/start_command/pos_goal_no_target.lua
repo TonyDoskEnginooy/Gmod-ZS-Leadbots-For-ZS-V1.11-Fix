@@ -97,7 +97,7 @@ local function IsZombieExplorationEnt(bot, ent)
 end
 
 local function GetRandomRoamPos(controller)
-    return controller:FindSpot("near", { radius = 5000 })
+    return controller:FindSpot("random", { radius = 5000 })
 end
 
 local function TrySetZombieExplorationGoal(bot, controller)
@@ -198,7 +198,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     if strategy == 0 then
         local pressurePos = GetDistributedZombiePressurePos(bot, now)
 
-        if pressurePos or ZSB.Util:Odds(65) then
+        if pressurePos or ZSB.Util:Odds(50) then
             return pressurePos
         end
 
@@ -221,7 +221,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     if strategy == 1 then
         local campingSpot = GetSurvivorCampingSpot(strategy)
 
-        if ZSB.Util:Odds(70) then
+        if ZSB.Util:Odds(35) then
             if campingSpot then
                 if bot:GetPos():DistToSqr(campingSpot) <= SURVIVOR_ANCHOR_REACHED_DIST_SQR then
                     return nil

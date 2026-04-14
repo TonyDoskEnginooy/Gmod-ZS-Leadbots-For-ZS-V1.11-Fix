@@ -42,7 +42,7 @@ local function AreaHasAttribute(area, attribute)
     return area ~= nil and area:IsValid() and area:HasAttributes(attribute)
 end
 
-local slowSqr = 40 * 40
+local slowSqr = 20 * 20
 function SC.HandleJump(bot, controller, currentGoal, now)
     local isJumpArea = AreaHasAttribute(currentGoal.area, NAV_MESH_JUMP)
 
