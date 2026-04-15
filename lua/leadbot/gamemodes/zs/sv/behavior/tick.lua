@@ -8,6 +8,8 @@ local DEFAULT_ZOMBIE_CLASS = 1
 local CS_ZOMBIE_SPEED = 200
 local CS_HUMAN_HEALTH = 30
 
+ZSB = ZSB or {}
+
 local function GetMinimumZombieCount(totalPlayers)
     return math.ceil(totalPlayers * (leadbot_minzombies:GetInt() * 0.01))
 end
@@ -71,7 +73,7 @@ local function TryRedeemZombiePlayer(ply, redeemPlayers)
     end
 end
 
-function KillLonelyHordeBot(quota, bot)
+local function KillLonelyHordeBot(quota, bot)
     if quota < 2 and bot:IsBot() and bot:Team() == TEAM_SURVIVORS then
         bot:Kill()
     end

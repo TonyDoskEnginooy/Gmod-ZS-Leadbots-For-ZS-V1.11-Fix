@@ -44,8 +44,7 @@ local function OnSurvivorBotHurt(aggressor, victimBot)
         and not (aggressor:IsPlayer() and aggressor:HasGodMode())
         and ZSB.Util:CanPerceiveTarget(victimBot, aggressor)
     then
-        controller.PosGen = aggressor:GetPos()
-        controller.Target8 = aggressor
+        controller.Target = aggressor
         controller.ForgetTarget = CurTime() + 1.8
         controller.LookAt = (aggressor:WorldSpaceCenter() - victimBot:GetShootPos()):Angle()
         controller.LookAtTime = CurTime() + 1.4
@@ -66,7 +65,6 @@ local function OnZombieBotHurt(aggressor, victimBot)
         local hurtDistance = victimPos:DistToSqr(aggressorPos)
 
         if hurtDistance < pathDistance then
-            controller.PosGen = aggressorPos
             controller.LookAt = (aggressor:WorldSpaceCenter() - victimBot:GetShootPos()):Angle()
             controller.LookAtTime = CurTime() + 1.4
 

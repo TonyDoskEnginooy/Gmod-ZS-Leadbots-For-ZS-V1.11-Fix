@@ -66,8 +66,6 @@ function SM.ClearCompletedGoal(controller)
     controller.ForgetTarget = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin
-    controller.NextStrafe = 0
-    controller.StrafeAngle = 0
 end
 
 function SM.PrepareControllerForMove(bot, controller, mv)
