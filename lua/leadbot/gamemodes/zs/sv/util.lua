@@ -384,14 +384,14 @@ local wantedCmdClasses = {
 }
 local wantedCmdClassesSeq = table.GetKeys(wantedCmdClasses)
 
-local MAX_SCAN_RANGE = 1600
+local MAX_SCAN_RANGE = 1300
 local BOT_SCAN_RANGE = Vector(MAX_SCAN_RANGE, MAX_SCAN_RANGE, MAX_SCAN_RANGE)
 local BOT_SCAN_DELAY = 0.5
 local BOT_SCAN_JITTER_MIN = -0.1
 local BOT_SCAN_JITTER_MAX = 0.1
-local NEAR_DISTANCE = 250
+local NEAR_DISTANCE = 200
 local NEAR_DISTANCE_SQR = NEAR_DISTANCE * NEAR_DISTANCE
-local FACING_DISTANCE = 1000
+local FACING_DISTANCE = 800
 local FACING_DISTANCE_SQR = FACING_DISTANCE * FACING_DISTANCE
 
 local entsFindInBox = ents.FindInBox
