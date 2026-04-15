@@ -54,6 +54,7 @@ function SC.AcquireZombieBreakTarget(bot, controller, foundEnts)
 
     ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable"], "func_breakable", ScoreZombieObstacleTarget)
     ConsiderBestTarget(bot, controller, state, foundEnts.near["func_physbox"], "func_physbox", ScoreZombieObstacleTarget)
+    ConsiderBestTarget(bot, controller, state, foundEnts.near["func_breakable_surf"], "func_breakable_surf", ScoreZombieObstacleTarget)
     --ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_physics"], "prop_physics", ScoreZombieObstacleTarget)
     --ConsiderBestTarget(bot, controller, state, foundEnts.near["prop_dynamic"], "prop_dynamic", ScoreZombieObstacleTarget)
 
