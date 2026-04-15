@@ -35,11 +35,13 @@ function LeadBot.SetupMove(bot, cmd, mv)
         distanceSqr = controller.Target:GetPos():DistToSqr(bot:GetPos())
     end
 
-    SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
-
     -- Apply movement specializations
 
     SM.ApplyTemperamentMovement(bot, controller, mv)
+
+    -- Safety, at last
+
+    SM.Retreat(bot, controller, mv, distanceSqr, strategy, now)
 
     -- Debug
 
