@@ -257,6 +257,54 @@ ZSB.Map.handler = {
     zs_residentevil2v2 = {
         campingSpotList = { Vector(1103.56, 994.45, 280.01), Vector(-386.79, -175.98, 280.03), Vector(-387.19, -175.96, 456.03) },
         eyeAngles = function(strategy, doorVar, hallVar, openVar) return Angle(0, ({ 90 + hallVar, 90 + hallVar, 270 + doorVar })[strategy], 0) end
+    },
+    zs_uglyfort = {
+        survivorBreak = true,
+        survivorBoxBreak = true,
+        campingSpotList = { Vector(1653.56, 1082.45, 64.01), Vector(1730, 1337, 224), Vector(219, 1402, 80) },
+        eyeAngles = function(strategy, doorVar, hallVar, openVar) return Angle(0, ({ 90 + openVar, 90 + hallVar, 270 + openVar })[strategy], 0) end,
+        botBarrierList = {
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1090, 1279, 176),
+                ang = Angle(0, 90, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(961, 1150, 176),
+                ang = Angle(0, 180, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1280, 1150, 176),
+                ang = Angle(0, 180, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1090, 962, 176),
+                ang = Angle(0, 90, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1090, 1279, 15),
+                ang = Angle(0, 90, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(961, 1150, 15),
+                ang = Angle(0, 180, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1280, 1150, 15),
+                ang = Angle(0, 180, 0)
+            },
+            {
+                model = "models/props_c17/fence03a.mdl",
+                pos = Vector(1090, 962, 15),
+                ang = Angle(0, 90, 0)
+            },
+        },
     }
 }
 
@@ -311,6 +359,10 @@ local function RemovePropPhysicsByModel(entList)
 end
 
 local function CreateBotBarriers()
+    -- for k,v in ipairs(ents.FindByModel("ModeHere")) do
+    --     v:Remove()
+    -- end
+
     local botBarrierList = ZSB.Map:GetValue("botBarrierList")
 
     for _, botBarrier in ipairs(botBarrierList) do
