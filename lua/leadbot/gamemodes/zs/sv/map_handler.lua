@@ -222,13 +222,15 @@ ZSB.Map.handler = {
         eyeAngles = function(strategy, doorVar, hallVar, openVar) return Angle(0, ({ 90 + hallVar, 225 + openVar, 180 + hallVar })[strategy], 0) end
     },
     zs_coasthouse = {
+        survivorBreak = true,
+        survivorBoxBreak = true,
         campingSpotList = { Vector(-97.21, 167.99, 264.03), Vector(-759.96, -87.85, 392.38), Vector(-331.66, 167.96, 392.03) },
         eyeAngles = function(strategy, doorVar, hallVar, openVar) return Angle(0, ({ 270 + doorVar, 0 + hallVar, 270 + hallVar })[strategy], 0) end,
-        removeFuncBreakable = true,
-        removeFuncBreakableFilter = function(v)
-            local modelName = v:GetModel()
-            return modelName == "*5" or modelName == "*6" or modelName == "*7"
-        end,
+        -- removeFuncBreakable = true,
+        -- removeFuncBreakableFilter = function(v)
+        --     local modelName = v:GetModel()
+        --     return modelName == "*5" or modelName == "*6" or modelName == "*7"
+        -- end,
     },
     zs_lakefront_alpha = {
         campingSpotList = { Vector(1463.96, 1879.96, 14.03), Vector(1248.63, 1820.72, 14.03), Vector(1090.03, 1819.96, 14.03) },
