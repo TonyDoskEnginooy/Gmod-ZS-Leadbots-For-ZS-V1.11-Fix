@@ -9,6 +9,35 @@ end
 
 -- ----------------------------------------------
 
+local function RotateVector2D(vec, degrees)
+    local radians = math.rad(degrees)
+    local cosValue = math.cos(radians)
+    local sinValue = math.sin(radians)
+
+    return Vector(
+        vec.x * cosValue - vec.y * sinValue,
+        vec.x * sinValue + vec.y * cosValue,
+        0
+    )
+end
+
+function UT.GetTargetSpreadPosition(bot, target, targetPos, radius)
+    local baseDir = bot:GetPos() - targetPos
+    baseDir.z = 0
+
+    if baseDir:LengthSqr() <= 0.001 then
+        baseDir = Angle(0, bot:EntIndex() * 47 % 360, 0):Forward()
+    else
+        baseDir:Normalize()
+    end
+
+    -- Stable angle offset per bot/target pair.
+    local angleOffset = (((bot:EntIndex() * 73) + (target:EntIndex() * 31)) % 121) - 60
+    local spreadDir = RotateVector2D(baseDir, angleOffset)
+
+    return targetPos + spreadDir * radius
+end
+
 function UT.GetPos(target, referencePos)
     if not IsValid(target) then
         return nil

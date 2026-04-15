@@ -272,18 +272,22 @@ end
 function SC.UpdateGoalFromTarget(bot, controller)
     if not IsValid(controller.Target) then return end
 
-    local PosGen = ZSB.Util.GetPos(controller.Target, bot:GetPos())
+    local targetPos = ZSB.Util.GetPos(controller.Target, bot:GetPos())
+    if not isvector(targetPos) then return end
 
-    if controller.PosGen == PosGen then return end
+    local posGen = targetPos
 
     if bot:IsPlayer() and controller.Target:IsPlayer() and (
         bot:Team() ~= controller.Target:Team()
         or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
     ) then
-        controller.PosGen = PosGen
-    elseif bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
-        controller.PosGen = PosGen
+        posGen = ZSB.Util.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
+    elseif bot:Team() == TEAM_SURVIVORS and ZSB.Util.IsSurvivorBreakTarget(bot, controller.Target) then
+        posGen = SC.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
     end
+
+    if controller.PosGen == posGen then return end
+    controller.PosGen = posGen
 end
 
 function SC.ClearGoal(controller)
