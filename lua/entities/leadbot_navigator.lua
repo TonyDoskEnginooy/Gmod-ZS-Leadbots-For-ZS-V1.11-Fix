@@ -83,6 +83,9 @@ function ENT:Reset()
     self.NextBlockedAttackEntity = 0
     self.RetreatGodModeThread = false
     self.RetreatTotalThreats = 0
+    self.NextMoveSurvivorToSigil = 0
+    self.SigilFallbackActive = false
+    self.SigilFallbackPos = vector_origin
 
     self.NextStrafe = 0
     self.NextJump = -1

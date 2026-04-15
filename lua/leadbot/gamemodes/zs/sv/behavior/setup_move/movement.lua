@@ -172,9 +172,9 @@ end
 
 local function GetFallbackMove(bot, distanceSqr)
     if bot:Team() == TEAM_ZOMBIE then
-        if distanceSqr and distanceSqr <= 80 * 80 then
+        if distanceSqr and distanceSqr <= 30 * 30 then
             return {
-                forwardMode = "hold",
+                forwardMode = "circle",
                 sideMode = "juke"
             }
         end

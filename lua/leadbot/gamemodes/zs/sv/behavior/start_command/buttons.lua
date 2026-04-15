@@ -33,8 +33,10 @@ function SC.BuildActionButtons(bot, controller)
 
         if ZSB.Util.IsActiveSurvivorMelee(bot) then
             -- Create a short hit-and-run window after a melee swing.
-            controller.LastMeleeAttackTime = now
-            controller.MeleeRetreatUntil = now + 0.6
+            if controller.RetreatTotalThreats > 0 then
+                controller.LastMeleeAttackTime = now
+                controller.MeleeRetreatUntil = now + 0.6
+            end
         end
     elseif IsValid(blockedAttackEntity) then
         buttons = bit.bor(buttons, IN_ATTACK)

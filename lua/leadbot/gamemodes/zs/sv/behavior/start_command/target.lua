@@ -15,21 +15,24 @@ local CHEM_ZOMBIE_AVOID_CHANCE = 65
 
 local SOURCE_FACING_PLAYER = 1
 local SOURCE_AREA_PLAYER = 2
-local SOURCE_NEAR_NPC = 3
-local SOURCE_AREA_NPC = 4
-local SOURCE_PANIC_RECENT = 5
+local SOURCE_NEAR_PLAYER = 3
+local SOURCE_NEAR_NPC = 4
+local SOURCE_AREA_NPC = 5
+local SOURCE_PANIC_RECENT = 6
 
 local SOURCE_PRIORITY = {
     [SOURCE_FACING_PLAYER] = 10,
     [SOURCE_AREA_PLAYER] = 20,
-    [SOURCE_NEAR_NPC] = 30,
-    [SOURCE_AREA_NPC] = 40,
-    [SOURCE_PANIC_RECENT] = 50
+    [SOURCE_NEAR_PLAYER] = 30,
+    [SOURCE_NEAR_NPC] = 40,
+    [SOURCE_AREA_NPC] = 50,
+    [SOURCE_PANIC_RECENT] = 60
 }
 
 local SOURCE_BASE_BONUS = {
     [SOURCE_FACING_PLAYER] = 220,
     [SOURCE_AREA_PLAYER] = 140,
+    [SOURCE_NEAR_PLAYER] = 100,
     [SOURCE_NEAR_NPC] = 55,
     [SOURCE_AREA_NPC] = 12,
     [SOURCE_PANIC_RECENT] = 300
@@ -231,6 +234,10 @@ function SC.AcquireTemperamentTarget(bot, controller, foundEnts, now)
         if extraScan then
             AddCandidateBonus(candidateSources, foundEnts[extraScan]["player"], SOURCE_AREA_PLAYER)
         end
+
+        if SC.ShouldFallbackToSigil(bot) then
+            AddCandidateBonus(candidateSources, foundEnts.near["player"], SOURCE_NEAR_PLAYER)
+        end
     end
 
     AddCandidateBonus(candidateSources, foundEnts.facing["player"], SOURCE_FACING_PLAYER)
@@ -269,25 +276,26 @@ function SC.ForgetInvalidTarget(bot, controller)
     end
 end
 
-function SC.UpdateGoalFromTarget(bot, controller)
+function SC.UpdateGoalFromTarget(bot, controller, strategy)
     if not IsValid(controller.Target) then return end
 
-    local targetPos = ZSB.Util.GetPos(controller.Target, bot:GetPos())
-    if not isvector(targetPos) then return end
+    local PosGen = ZSB.Util.GetPos(controller.Target, bot:GetPos())
+    local botTeam = bot:Team()
 
-    local posGen = targetPos
-
-    if bot:IsPlayer() and controller.Target:IsPlayer() and (
-        bot:Team() ~= controller.Target:Team()
-        or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
-    ) then
-        posGen = ZSB.Util.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
-    elseif bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
-        posGen = ZSB.Util.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
+    if botTeam == TEAM_SURVIVORS and strategy == 2 and controller.Target then
+        PosGen = ZSB.Util.GetTargetSpreadPosition(bot, controller.Target, PosGen, math.Rand(10, 40))
     end
 
-    if controller.PosGen == posGen then return end
-    controller.PosGen = posGen
+    if controller.PosGen == PosGen then return end
+
+    if bot:IsPlayer() and controller.Target:IsPlayer() and (
+        botTeam ~= controller.Target:Team()
+        or (botTeam == TEAM_SURVIVORS and controller.Target:IsNPC())
+    ) then
+        controller.PosGen = PosGen
+    elseif botTeam == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
+        controller.PosGen = PosGen
+    end
 end
 
 function SC.ClearGoal(controller)
@@ -297,8 +305,9 @@ function SC.ClearGoal(controller)
 
     controller.PosGen = nil
     controller.TPos = nil
-    controller.Target = nil
     controller.ForgetTarget = 0
     controller.CurSegmentIndex = 2
     controller.GoalPos = vector_origin
+    controller.SigilFallbackActive = false
+    controller.SigilFallbackPos = nil
 end

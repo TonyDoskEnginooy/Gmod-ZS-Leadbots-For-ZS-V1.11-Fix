@@ -6,6 +6,10 @@ local SC = ZSB.StartCommand
 local LARGE_RANDOM_SPOT_OPTIONS = { radius = 5000 }
 
 local SURVIVOR_ANCHOR_REACHED_DIST_SQR = 2500
+local SURVIVOR_SIGIL_GROUP_RADIUS_SQR = 300 * 300
+local SURVIVOR_SIGIL_STRATEGY_BIAS = 150 * 150
+local SURVIVOR_DANGER_MEDIUM_ZOMBIE_RATIO = 2 / 12
+local SURVIVOR_DANGER_FALLBACK_ZOMBIE_RATIO = 3 / 12
 
 local SURVIVOR_FREE_ROAM_DISABLE_HP = 35
 local SURVIVOR_FREE_ROAM_ENABLE_HP = 65
@@ -21,6 +25,69 @@ local zombieExplorationBuckets = {
     "func_movelinear"
 }
 
+function SC.GetSurvivorDangerStage()
+    local survivorCount = team.NumPlayers(TEAM_SURVIVORS)
+    local zombieCount = team.NumPlayers(TEAM_ZOMBIE)
+    local totalPlayers = survivorCount + zombieCount
+
+    if totalPlayers <= 0 then
+        return 0, zombieCount, survivorCount
+    end
+
+    local zombieRatio = zombieCount / totalPlayers
+
+    if zombieRatio >= SURVIVOR_DANGER_FALLBACK_ZOMBIE_RATIO then
+        return 2, zombieCount, survivorCount
+    end
+
+    if zombieRatio >= SURVIVOR_DANGER_MEDIUM_ZOMBIE_RATIO then
+        return 1, zombieCount, survivorCount
+    end
+
+    return 0, zombieCount, survivorCount
+end
+
+local function HasSigilSpots()
+    local campingSpotList = ZSB.Map:GetValue("campingSpotList")
+
+    return istable(campingSpotList) and #campingSpotList > 0
+end
+
+function SC.ShouldFallbackToSigil(bot)
+    if not IsValid(bot) or bot:Team() ~= TEAM_SURVIVORS or not HasSigilSpots() then
+        return false
+    end
+
+    local dangerStage = SC.GetSurvivorDangerStage()
+
+    return dangerStage >= 2
+end
+
+local function ClearSigilFallback(controller)
+    if not IsValid(controller) then
+        return
+    end
+
+    controller.SigilFallbackActive = false
+    controller.SigilFallbackPos = nil
+end
+
+local function CountNearbyAliveSurvivors(bot, targetPos)
+    local nearbyCount = 0
+
+    for _, candidate in ipairs(player.GetAll()) do
+        if IsValid(candidate)
+        and candidate:Alive()
+        and candidate:Team() == TEAM_SURVIVORS
+        and candidate:GetPos():DistToSqr(targetPos) <= SURVIVOR_SIGIL_GROUP_RADIUS_SQR
+        then
+            nearbyCount = nearbyCount + 1
+        end
+    end
+
+    return nearbyCount
+end
+
 function SC.SetRoamState(bot)
     if bot:Team() ~= TEAM_SURVIVORS then return end
 
@@ -28,8 +95,12 @@ function SC.SetRoamState(bot)
         bot.freeRoam = true
     end
 
-    local survivorCount = team.NumPlayers(TEAM_SURVIVORS)
-    local zombieCount = team.NumPlayers(TEAM_ZOMBIE)
+    local dangerStage, zombieCount, survivorCount = SC.GetSurvivorDangerStage()
+
+    if dangerStage >= 1 then
+        bot.freeRoam = false
+        return
+    end
 
     if bot.freeRoam then
         if bot:Health() <= SURVIVOR_FREE_ROAM_DISABLE_HP
@@ -205,8 +276,8 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
         return SC.GetRandomRoamPos(controller)
     end
 
-    -- Anchored survivor strategies.
-    if strategy >= 1 and strategy <= 3 and ZSB.Util:Odds(13) then
+    -- Home
+    if strategy >= 1 and strategy <= 3 and ZSB.Util:Odds(12) then
         local campingSpot = GetSurvivorCampingSpot(strategy)
 
         if campingSpot then
@@ -218,17 +289,10 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
         end
     end
 
+    -- Prefer exploration
     if strategy == 1 then
-        if ZSB.Util:Odds(35) then
-            local campingSpot = GetSurvivorCampingSpot(strategy)
-
-            if campingSpot then
-                if bot:GetPos():DistToSqr(campingSpot) <= SURVIVOR_ANCHOR_REACHED_DIST_SQR then
-                    return nil
-                end
-
-                return campingSpot
-            end
+        if ZSB.Util:Odds(70) then
+            return SC.GetRandomRoamPos(controller)
         else
             local survivorPos = GetRandomAliveSurvivorPos(bot)
 
@@ -236,6 +300,7 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
                 return survivorPos
             end
         end
+    -- Prefer support
     elseif strategy == 2 then
         if ZSB.Util:Odds(70) then
             local survivorPos = GetRandomAliveSurvivorPos(bot)
@@ -244,13 +309,22 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
                 return survivorPos
             end
         else
-            return SC.GetRandomRoamPos(controller)
-        end
-    elseif strategy == 3 then
-        local zombiePos = GetDistributedZombiePressurePos(bot, now)
+            local zombiePos = GetDistributedZombiePressurePos(bot, now)
 
-        if zombiePos then
-            return zombiePos
+            if zombiePos then
+                return zombiePos
+            end
+        end
+    -- Prefer attacking
+    elseif strategy == 3 then
+        if ZSB.Util:Odds(70) then
+            local zombiePos = GetDistributedZombiePressurePos(bot, now)
+
+            if zombiePos then
+                return zombiePos
+            end
+        else
+            return SC.GetRandomRoamPos(controller)
         end
     end
 
@@ -258,16 +332,65 @@ local function ResolveSurvivorTargetPos(bot, controller, strategy, now)
     return SC.GetRandomRoamPos(controller)
 end
 
-local function MoveSurvivorToSigil(bot, controller, strategy)
+local function GetDangerSigilPos(bot, strategy)
+    local campingSpotList = ZSB.Map:GetValue("campingSpotList")
+
+    if not istable(campingSpotList) or #campingSpotList <= 0 then
+        return nil
+    end
+
+    local bestPos
+    local bestScore = math.huge
+    local strategyIndex = strategy >= 1 and strategy <= #campingSpotList and strategy or nil
+
+    for index, candidatePos in ipairs(campingSpotList) do
+        if isvector(candidatePos) then
+            local score = bot:GetPos():DistToSqr(candidatePos)
+            local nearbySurvivors = CountNearbyAliveSurvivors(bot, candidatePos)
+
+            score = score + nearbySurvivors * SURVIVOR_SIGIL_GROUP_RADIUS_SQR
+            -- I'm adding the survivals to the weight because I want people spliting between the sigils
+
+            if strategyIndex == index then
+                score = score - SURVIVOR_SIGIL_STRATEGY_BIAS
+            end
+
+            if score < bestScore then
+                bestScore = score
+                bestPos = candidatePos
+            end
+        end
+    end
+
+    return bestPos
+end
+
+function SC.MoveSurvivorToSigil(bot, controller, strategy, now)
+    if controller.NextMoveSurvivorToSigil > now then return controller.PosGen end
+
+    controller.NextMoveSurvivorToSigil = now + 0.33
+
     if bot:Team() ~= TEAM_SURVIVORS then
         return nil
     end
+
+    if SC.ShouldFallbackToSigil(bot) then
+        local sigilPos = GetDangerSigilPos(bot, strategy)
+        if isvector(sigilPos) then
+            controller.PosGen = sigilPos
+            controller.SigilFallbackActive = true
+            controller.SigilFallbackPos = sigilPos
+            return sigilPos
+        end
+    end
+
+    ClearSigilFallback(controller)
 
     local now = CurTime()
     local targetPos = ResolveSurvivorTargetPos(bot, controller, strategy, now)
 
     controller.PosGen = targetPos
-    return
+    return targetPos
 end
 
 local function MoveZombieToSurvivor(bot, controller, now)
@@ -293,14 +416,13 @@ function SC.MoveWithoutTarget(bot, controller, strategy)
     if controller.PosGen then return end
 
     local teamId = bot:Team()
+    local now = CurTime()
 
     if teamId == TEAM_SURVIVORS then
-        MoveSurvivorToSigil(bot, controller, strategy)
+        SC.MoveSurvivorToSigil(bot, controller, strategy, now)
     end
 
     if teamId == TEAM_ZOMBIE then
-        local now = CurTime()
-
         if math.random(1, 100) <= 40 then
             if TrySetZombieExplorationGoal(bot, controller) then
                 return

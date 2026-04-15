@@ -33,6 +33,17 @@ local function ApplyZombieCheats(bot)
     end
 end
 
+local function UpdateSigilFallback(controller, sigilFallbackActive)
+    if not sigilFallbackActive and controller.SigilFallbackActive then
+        if controller.PosGen == controller.SigilFallbackPos then
+            controller.PosGen = nil
+        end
+
+        controller.SigilFallbackActive = false
+        controller.SigilFallbackPos = nil
+    end
+end
+
 function LeadBot.StartCommand(bot, cmd)
     local controller = bot:GetController()
     if not IsValid(controller) then return end
@@ -56,9 +67,9 @@ function LeadBot.StartCommand(bot, cmd)
     SC.ForgetInvalidTarget(bot, controller)
 
     local foundEnts = ZSB.Util:FindEnts(bot)
+    local strategy = bot:LBGetStrategy()
 
     SC.ToggleMovingBrush(bot, foundEnts.near["func_movelinear"])
-    --SC.BreakBreakableSurface(foundEnts.near["func_breakable_surf"])
 
     if teamId == TEAM_SURVIVORS then
         SC.SetRoamState(bot)
@@ -71,15 +82,27 @@ function LeadBot.StartCommand(bot, cmd)
             end
         end
 
+        local sigilFallbackActive = SC.ShouldFallbackToSigil(bot)
+
+        UpdateSigilFallback(controller, sigilFallbackActive)
+
         if IsValid(controller.Target) then
             local botPos = bot:GetPos()
             local targetPos = controller.Target:GetPos()
             local distanceSqr = targetPos:DistToSqr(botPos)
+            local immediateThreat = SC.HasImmediateZombieThreat(bot, controller, foundEnts)
 
             SC.SelectSurvivorWeapon(bot, distanceSqr, controller, foundEnts, now)
-            SC.UpdateGoalFromTarget(bot, controller)
+
+            if sigilFallbackActive and not immediateThreat then
+                SC.MoveSurvivorToSigil(bot, controller, strategy, now)
+            else
+                SC.UpdateGoalFromTarget(bot, controller, strategy)
+            end
+        elseif sigilFallbackActive then
+            SC.MoveSurvivorToSigil(bot, controller, strategy, now)
         elseif not controller.PosGen then
-            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
+            SC.MoveWithoutTarget(bot, controller, strategy, foundEnts)
         end
     elseif teamId == TEAM_ZOMBIE then
         ApplyZombieCheats(bot)
@@ -95,9 +118,9 @@ function LeadBot.StartCommand(bot, cmd)
 
         if IsValid(controller.Target) then
             SC.TryThrowNearbyProp(bot, controller, foundEnts)
-            SC.UpdateGoalFromTarget(bot, controller)
+            SC.UpdateGoalFromTarget(bot, controller, strategy)
         elseif not controller.PosGen then
-            SC.MoveWithoutTarget(bot, controller, bot:LBGetStrategy(), foundEnts)
+            SC.MoveWithoutTarget(bot, controller, strategy, foundEnts)
         end
     end
 
