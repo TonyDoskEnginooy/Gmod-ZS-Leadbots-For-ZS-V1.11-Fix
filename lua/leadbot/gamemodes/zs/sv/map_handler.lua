@@ -266,42 +266,42 @@ ZSB.Map.handler = {
         botBarrierList = {
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1090, 1279, 176),
+                pos = Vector(1090, 1279, 185),
                 ang = Angle(0, 90, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(961, 1150, 176),
+                pos = Vector(961, 1150, 185),
                 ang = Angle(0, 180, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1280, 1150, 176),
+                pos = Vector(1280, 1150, 185),
                 ang = Angle(0, 180, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1090, 962, 176),
+                pos = Vector(1090, 962, 185),
                 ang = Angle(0, 90, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1090, 1279, 15),
+                pos = Vector(1090, 1279, 24),
                 ang = Angle(0, 90, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(961, 1150, 15),
+                pos = Vector(961, 1150, 24),
                 ang = Angle(0, 180, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1280, 1150, 15),
+                pos = Vector(1280, 1150, 24),
                 ang = Angle(0, 180, 0)
             },
             {
                 model = "models/props_c17/fence03a.mdl",
-                pos = Vector(1090, 962, 15),
+                pos = Vector(1090, 962, 24),
                 ang = Angle(0, 90, 0)
             },
         },
