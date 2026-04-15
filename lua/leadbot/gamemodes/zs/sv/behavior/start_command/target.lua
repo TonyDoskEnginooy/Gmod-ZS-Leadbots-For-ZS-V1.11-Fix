@@ -282,7 +282,7 @@ function SC.UpdateGoalFromTarget(bot, controller)
         or (bot:Team() == TEAM_SURVIVORS and controller.Target:IsNPC())
     ) then
         posGen = ZSB.Util.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
-    elseif bot:Team() == TEAM_SURVIVORS and ZSB.Util.IsSurvivorBreakTarget(bot, controller.Target) then
+    elseif bot:Team() == TEAM_SURVIVORS and SC.IsSurvivorBreakTarget(bot, controller.Target) then
         posGen = SC.GetTargetSpreadPosition(bot, controller.Target, targetPos, math.Rand(70, 120))
     end
 
