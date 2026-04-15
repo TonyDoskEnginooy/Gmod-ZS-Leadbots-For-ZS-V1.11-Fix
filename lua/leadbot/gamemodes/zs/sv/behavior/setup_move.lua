@@ -4,7 +4,7 @@ end
 
 includeSetupMoveModule("base.lua")
 includeSetupMoveModule("temperament.lua")
-includeSetupMoveModule("retreat.lua")
+includeSetupMoveModule("movement.lua")
 includeSetupMoveModule("path.lua")
 includeSetupMoveModule("aim.lua")
 includeSetupMoveModule("debug.lua")
