@@ -424,12 +424,18 @@ function ZSB.Map.Init()
     RemovePropPhysicsByModel(propPhysicsEnts)
 
     if ZSB.Map:GetValue("forceEnableMotion") then
+        local funcPhysboxEnts = ents.FindByClass("func_physbox")
+
         for _, physbox in ipairs(funcPhysboxEnts) do
-            physbox:Fire("EnableMotion")
+            if IsValid(physbox) then
+                physbox:Fire("EnableMotion")
+            end
         end
 
         for _, prop in ipairs(propPhysicsEnts) do
-            prop:Fire("EnableMotion")
+            if IsValid(prop) then
+                prop:Fire("EnableMotion")
+            end
         end
     end
 
